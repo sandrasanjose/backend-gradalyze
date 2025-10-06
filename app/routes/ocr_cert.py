@@ -1,9 +1,9 @@
 from flask import Blueprint, request, jsonify, current_app
 import os
 from app.services.supabase_client import get_supabase_client
-from app.services.certificate_analyzer import CertificateAnalyzer, analyze_certificate_text
+# Certificate analyzer functions inlined below
 
-bp = Blueprint('certificates', __name__, url_prefix='/api/certificates')
+bp = Blueprint('ocr_cert', __name__, url_prefix='/api/ocr-cert')
 
 @bp.route('/extract-text', methods=['POST'])
 def extract_certificate_text():
@@ -121,8 +121,22 @@ def enhance_analysis_with_certificates():
             current_app.logger.error(f'Failed to parse TOR notes: {e}')
             return jsonify({'message': 'Failed to parse existing analysis'}), 400
         
-        # Enhance analysis with certificate data
-        from app.services.certificate_analyzer import enhance_analysis_with_certificates
+        # Enhance analysis with certificate data (inlined function)
+        def enhance_analysis_with_certificates(tor_analysis: dict, certificate_analyses: list) -> dict:
+            """Enhance TOR analysis with certificate data"""
+            # Simple enhancement - just merge the certificate analyses
+            enhanced = tor_analysis.copy()
+            
+            # Add certificate keywords
+            all_keywords = []
+            for cert_analysis in certificate_analyses:
+                all_keywords.extend(cert_analysis.get('extracted_keywords', []))
+            
+            if all_keywords:
+                enhanced['certificate_keywords'] = list(set(all_keywords))
+            
+            return enhanced
+        
         enhanced_analysis = enhance_analysis_with_certificates(tor_analysis, certificate_analyses)
         
         # Update user's TOR notes with enhanced analysis
@@ -134,18 +148,8 @@ def enhance_analysis_with_certificates():
             'archetype_analyzed_at': datetime.now(timezone.utc).isoformat()
         }
         
-        # Update archetype percentages if available
-        if 'learning_archetype' in enhanced_analysis and 'archetype_percentages' in enhanced_analysis['learning_archetype']:
-            archetype_percentages = enhanced_analysis['learning_archetype']['archetype_percentages']
-            update_data.update({
-                'primary_archetype': max(archetype_percentages, key=archetype_percentages.get) if archetype_percentages else None,
-                'archetype_realistic_percentage': archetype_percentages.get('realistic', 0),
-                'archetype_investigative_percentage': archetype_percentages.get('investigative', 0),
-                'archetype_artistic_percentage': archetype_percentages.get('artistic', 0),
-                'archetype_social_percentage': archetype_percentages.get('social', 0),
-                'archetype_enterprising_percentage': archetype_percentages.get('enterprising', 0),
-                'archetype_conventional_percentage': archetype_percentages.get('conventional', 0),
-            })
+        # Certificate enhancement only - no archetype logic here
+        # Archetype analysis should be handled by objective_2
         
         supabase.table('users').update(update_data).eq('id', user['id']).execute()
         
