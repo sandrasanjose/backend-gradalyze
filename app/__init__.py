@@ -53,7 +53,7 @@ def create_app():
         return {'status': 'healthy', 'message': 'Gradalyze API is running'}
     
     # Register blueprints
-    from app.routes import auth, dossier, users, ocr_cert, ocr_tor, objective_1, objective_2, objective_3
+    from app.routes import auth, dossier, users, ocr_cert, ocr_tor, objective_1, objective_1_cs, objective_2, objective_3
     app.register_blueprint(auth.bp)
     app.register_blueprint(dossier.bp)
     app.register_blueprint(users.bp)
@@ -61,6 +61,7 @@ def create_app():
     app.register_blueprint(ocr_cert.bp)
     app.register_blueprint(ocr_tor.bp)
     app.register_blueprint(objective_1.bp)
+    app.register_blueprint(objective_1_cs.bp)
     app.register_blueprint(objective_2.bp)
     
     return app

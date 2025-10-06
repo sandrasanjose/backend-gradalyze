@@ -60,6 +60,7 @@ def process_archetype_analysis():
         data = request.get_json(silent=True) or {}
         email = (data.get('email') or '').strip().lower()
         grades_data = data.get('grades') or []
+        order_ids = data.get('order_ids') or []
         
         print(f"[OBJECTIVE-2] Archetype analysis processing for email: {email}")
         print(f"[OBJECTIVE-2] Received {len(grades_data)} grade records for archetype analysis")
@@ -75,7 +76,7 @@ def process_archetype_analysis():
         print(f"[OBJECTIVE-2] Processing {len(grades)} grade values: {grades}")
         
         # RIASEC archetype analysis based on academic performance
-        archetype_analysis = calculate_riasec_archetype(grades)
+        archetype_analysis = calculate_riasec_archetype(grades, order_ids)
         
         # Save to database
         if archetype_analysis:
@@ -155,15 +156,41 @@ def clear_archetype_results():
     try:
         data = request.get_json(silent=True) or {}
         email = (data.get('email') or '').strip().lower()
-        
+
         print(f"[OBJECTIVE-2] Clearing archetype results for email: {email}")
-        
-        return jsonify({'message': 'Archetype results cleared (Objective 2)'}), 200
+
+        if not email:
+            return jsonify({'message': 'email is required'}), 400
+
+        try:
+            supabase = get_supabase_client()
+            # Find user id
+            user_resp = supabase.table('users').select('id').eq('email', email).limit(1).execute()
+            if not user_resp.data:
+                return jsonify({'message': 'User not found'}), 404
+            user_id = user_resp.data[0]['id']
+
+            # Clear denormalized archetype columns
+            update_data = {
+                'archetype_analyzed_at': None,
+                'primary_archetype': None,
+                'archetype_realistic_percentage': None,
+                'archetype_investigative_percentage': None,
+                'archetype_artistic_percentage': None,
+                'archetype_social_percentage': None,
+                'archetype_enterprising_percentage': None,
+                'archetype_conventional_percentage': None,
+            }
+            supabase.table('users').update(update_data).eq('id', user_id).execute()
+            return jsonify({'message': 'Archetype results cleared (Objective 2)'}), 200
+        except Exception as db_error:
+            print(f"[OBJECTIVE-2] Clear DB error: {db_error}")
+            return jsonify({'message': 'Failed to clear archetype results', 'error': str(db_error)}), 500
     except Exception as e:
         print(f"[OBJECTIVE-2] Error: {e}")
         return jsonify({'message': 'Failed to clear archetype results', 'error': str(e)}), 500
 
-def calculate_riasec_archetype(grades):
+def calculate_riasec_archetype(grades, order_ids: List[str] | None = None):
     """
     RIASEC via KMeans-style clustering using BSIT course-to-RIASEC mapping.
     - Input: fixed-order numeric grades array aligned with ITStaticTable.
@@ -266,6 +293,79 @@ def calculate_riasec_archetype(grades):
     # Only these mapped IDs affect RIASEC scoring; others are ignored.
     curriculum_order: List[str] = list(id_to_axes.keys())
 
+    # BSCS mapping (subset) aligned with frontend CStaticTable ids
+    # Uses the provided RIASEC rationale; we map to axes lists
+    id_to_axes_cs: Dict[str, List[str]] = {
+        # Year 1 - 1st sem
+        'cs_fy1_intro_comp': ['I','R'],
+        'cs_fy1_fund_prog': ['I','R'],
+        'cs_fy1_disc_struct1': ['I'],
+        'cs_fy1_sts': ['I','S'],
+        'cs_fy1_mmw': ['I'],
+        'cs_fy1_pcm': ['S','E'],
+        'cs_fy1_fil': ['S','C'],
+        'cs_fy1_pe1': ['S','R'],
+        'cs_fy1_nstp1': ['S','E'],
+        # Year 1 - 2nd sem
+        'cs_fy2_intermediate_prog': ['I','R'],
+        'cs_fy2_dsa': ['I','C'],
+        'cs_fy2_discrete2': ['I'],
+        'cs_fy2_hci': ['S','I'],
+        'cs_fy2_tcw': ['S'],
+        'cs_fy2_rph': ['S','C'],
+        'cs_fy2_lwr': ['S','E'],
+        'cs_fy2_group_ex': ['S','R'],
+        'cs_fy2_nstp2': ['S','E'],
+        # Year 2 - 1st sem
+        'cs_sy1_oop': ['I','R'],
+        'cs_sy1_logic_design': ['R','I'],
+        'cs_sy1_or': ['I','C'],
+        'cs_sy1_im': ['C','I'],
+        'cs_sy1_living_it_era': ['S','I'],
+        'cs_sy1_ethics': ['S','C'],
+        'cs_sy1_uts': ['S'],
+        'cs_sy1_pe_elective': ['S','R'],
+        # Year 2 - 2nd sem
+        'cs_sy2_algo_complexity': ['I'],
+        'cs_sy2_arch_org': ['R','I'],
+        'cs_sy2_app_dev_emerging': ['I','C'],
+        'cs_sy2_ias': ['I','C'],
+        'cs_sy2_entre_mind': ['E','S'],
+        'cs_sy2_env_sci': ['I','S'],
+        'cs_sy2_art_app': ['A'],
+        'cs_sy2_pe_elective': ['S','R'],
+        # Year 3 - 1st sem
+        'cs_ty1_automata': ['I'],
+        'cs_ty1_prog_lang': ['I','R'],
+        'cs_ty1_se1': ['I','C','E'],
+        'cs_ty1_os': ['I','R'],
+        'cs_ty1_intelligent_sys': ['I','A'],
+        # Year 3 - 2nd sem
+        'cs_ty2_se2': ['I','E','C'],
+        'cs_ty2_compiler': ['I'],
+        'cs_ty2_comp_sci': ['I','C'],
+        'cs_ty2_elective1': [],
+        'cs_ty2_research_writing': ['I','C'],
+        # Year 3 - Summer
+        'cs_ty_summer_practicum': ['R','E'],
+        # Year 4 - 1st sem
+        'cs_fy4_thesis1': ['I','E'],
+        'cs_fy4_networks': ['R','I'],
+        'cs_fy4_elective2': [],
+        'cs_fy4_elective3': [],
+        # Year 4 - 2nd sem
+        'cs_fy4b_thesis2': ['I','E'],
+        'cs_fy4b_parallel_dist': ['I','R'],
+        'cs_fy4b_social_prof': ['S','C'],
+        'cs_fy4b_graphics_visual': ['A','I'],
+    }
+
+    # If explicit order_ids provided from frontend, use that; else append CS ids after IT subset
+    if order_ids and isinstance(order_ids, list) and all(isinstance(x, str) for x in order_ids):
+        curriculum_order = list(order_ids)
+    else:
+        curriculum_order += list(id_to_axes_cs.keys())
+
     # Create course vectors (points) in RIASEC space
     points: List[np.ndarray] = []
     weights: List[float] = []
@@ -276,7 +376,8 @@ def calculate_riasec_archetype(grades):
         w = grade_to_weight(g)
         if w <= 0:
             continue
-        tags = id_to_axes.get(course_id, [])
+        # Prefer IT map, then CS map
+        tags = id_to_axes.get(course_id, id_to_axes_cs.get(course_id, []))
         if not tags:
             continue
         vec = np.zeros(6, dtype=float)

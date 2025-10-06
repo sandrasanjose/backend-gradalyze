@@ -185,10 +185,31 @@ def clear_career_results():
     try:
         data = request.get_json(silent=True) or {}
         email = (data.get('email') or '').strip().lower()
-        
+
         print(f"[OBJECTIVE-1] Clearing career results for email: {email}")
-        
-        return jsonify({'message': 'Career results cleared (Objective 1)'}), 200
+
+        if not email:
+            return jsonify({'message': 'email is required'}), 400
+
+        try:
+            supabase = get_supabase_client()
+            # Find user id
+            user_resp = supabase.table('users').select('id').eq('email', email).limit(1).execute()
+            if not user_resp.data:
+                return jsonify({'message': 'User not found'}), 404
+            user_id = user_resp.data[0]['id']
+
+            # Null out/clear denormalized forecast columns
+            update_data = {
+                'career_forecast_analyzed_at': None,
+                'career_top_jobs': [],
+                'career_top_jobs_scores': [],
+            }
+            supabase.table('users').update(update_data).eq('id', user_id).execute()
+            return jsonify({'message': 'Career results cleared (Objective 1)'}), 200
+        except Exception as db_error:
+            print(f"[OBJECTIVE-1] Clear DB error: {db_error}")
+            return jsonify({'message': 'Failed to clear career results', 'error': str(db_error)}), 500
     except Exception as e:
         print(f"[OBJECTIVE-1] Error: {e}")
         return jsonify({'message': 'Failed to clear career results', 'error': str(e)}), 500

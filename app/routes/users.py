@@ -245,6 +245,101 @@ def upload_certificates_v2():
     except Exception as error:
         return jsonify({'message': 'Upload failed', 'error': str(error)}), 500
 
+@bp.route('/delete-certificate', methods=['DELETE', 'OPTIONS'])
+def delete_certificate_v2():
+    """Delete a single certificate by path or url and update user arrays.
+
+    Body JSON:
+      - email: user email (required)
+      - certificate_path: storage path within cert bucket (preferred)
+      - certificate_url: public URL (alternative)
+    """
+    try:
+        if request.method == 'OPTIONS':
+            return ('', 204)
+
+        data = request.get_json(silent=True) or {}
+        email = (data.get('email') or '').strip().lower()
+        cert_path = (data.get('certificate_path') or '').strip()
+        cert_url = (data.get('certificate_url') or '').strip()
+        if not email:
+            return jsonify({'message': 'email is required'}), 400
+        if not cert_path and not cert_url:
+            return jsonify({'message': 'certificate_path or certificate_url is required'}), 400
+
+        supabase = get_supabase_client()
+        user_resp = supabase.table('users').select('id, certificate_paths, certificate_urls, latest_certificate_path, latest_certificate_url').eq('email', email).limit(1).execute()
+        if not user_resp.data:
+            return jsonify({'message': 'User not found'}), 404
+        user_row = user_resp.data[0]
+        user_id = user_row['id']
+
+        bucket = os.getenv('SUPABASE_CERT_BUCKET', 'certificates')
+
+        # Determine storage path if only URL provided
+        if not cert_path and cert_url:
+            try:
+                marker = f"/{bucket}/"
+                idx = cert_url.find(marker)
+                if idx != -1:
+                    cert_path = cert_url[idx + len(marker):]
+            except Exception:
+                cert_path = ''
+
+        # Attempt storage removal when path known
+        if cert_path:
+            try:
+                remove_result = supabase.storage.from_(bucket).remove([cert_path])
+                if isinstance(remove_result, dict) and (remove_result.get('error') or remove_result.get('Error')):
+                    # Proceed to update DB arrays even if storage deletion reports error (object may be gone)
+                    pass
+            except Exception:
+                pass
+
+        # Update arrays in DB
+        prev_paths = (user_row.get('certificate_paths') or [])[:]
+        prev_urls = (user_row.get('certificate_urls') or [])[:]
+        # Also derive the counterpart URL from the path to remove matching entry in urls
+        derived_url = None
+        if cert_path:
+            try:
+                public_url_resp = supabase.storage.from_(bucket).get_public_url(cert_path)
+                if isinstance(public_url_resp, dict):
+                    data_obj = public_url_resp.get('data') or public_url_resp
+                    derived_url = (
+                        data_obj.get('publicUrl')
+                        or data_obj.get('public_url')
+                        or data_obj.get('publicURL')
+                    )
+                else:
+                    derived_url = str(public_url_resp)
+            except Exception:
+                derived_url = None
+
+        # Normalize empties
+        target_path = cert_path or ''
+        target_url = cert_url or derived_url or ''
+
+        new_paths = [p for p in prev_paths if p and p != target_path]
+        # Remove both provided URL and derived public URL if present
+        new_urls = [u for u in prev_urls if u and u != target_url]
+
+        # Recompute latest fields
+        new_latest_path = new_paths[-1] if new_paths else None
+        new_latest_url = new_urls[-1] if new_urls else None
+
+        update_payload = {
+            'certificate_paths': new_paths,
+            'certificate_urls': new_urls,
+            'latest_certificate_path': new_latest_path,
+            'latest_certificate_url': new_latest_url
+        }
+        supabase.table('users').update(update_payload).eq('id', user_id).execute()
+
+        return jsonify({'message': 'deleted', 'certificate_paths': new_paths, 'certificate_urls': new_urls}), 200
+    except Exception as error:
+        return jsonify({'message': 'Delete failed', 'error': str(error)}), 500
+
 @bp.route('/extract-grades', methods=['POST', 'OPTIONS'])
 def extract_grades():
     """Accept a TOR upload, OCR it via ocr_tor, persist grades to the user, and return them.

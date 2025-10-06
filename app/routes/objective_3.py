@@ -151,10 +151,29 @@ def clear_job_results():
     try:
         data = request.get_json(silent=True) or {}
         email = (data.get('email') or '').strip().lower()
-        
+
         print(f"[OBJECTIVE-3] Clearing job results for email: {email}")
-        
-        return jsonify({'message': 'Job results cleared (Objective 3)'}), 200
+
+        if not email:
+            return jsonify({'message': 'email is required'}), 400
+
+        try:
+            supabase = get_supabase_client()
+            # Find user id
+            user_resp = supabase.table('users').select('id').eq('email', email).limit(1).execute()
+            if not user_resp.data:
+                return jsonify({'message': 'User not found'}), 404
+            user_id = user_resp.data[0]['id']
+
+            # Clear job_recommendations jsonb field
+            update_data = {
+                'job_recommendations': None
+            }
+            supabase.table('users').update(update_data).eq('id', user_id).execute()
+            return jsonify({'message': 'Job results cleared (Objective 3)'}), 200
+        except Exception as db_error:
+            print(f"[OBJECTIVE-3] Clear DB error: {db_error}")
+            return jsonify({'message': 'Failed to clear job results', 'error': str(db_error)}), 500
     except Exception as e:
         print(f"[OBJECTIVE-3] Error: {e}")
         return jsonify({'message': 'Failed to clear job results', 'error': str(e)}), 500
