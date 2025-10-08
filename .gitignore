@@ -1,0 +1,5 @@
+# Ignore ML model artifacts
+models/
+**/*.joblib
+
+
