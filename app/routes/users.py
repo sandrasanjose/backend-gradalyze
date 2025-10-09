@@ -396,6 +396,7 @@ def extract_grades():
         ocr_result = extract_grades_from_tor(file_bytes, filename) or {}
         grades = ocr_result.get('grades') or []
         grade_values = ocr_result.get('grade_values') or []
+        full_text = ocr_result.get('full_text') or ""
 
         # Validate minimal structure if any grades are returned
         for g in grades:
@@ -413,7 +414,7 @@ def extract_grades():
         res_upd = supabase.table('users').update({'grades': grades}).eq('id', user_id).execute()
         saved = (res_upd.data[0].get('grades') if res_upd.data else grades) or grades
 
-        return jsonify({'success': True, 'grades': saved, 'grade_values': grade_values}), 200
+        return jsonify({'success': True, 'grades': saved, 'grade_values': grade_values, 'full_text': full_text}), 200
     except Exception as error:
         return jsonify({'message': 'Extract grades failed', 'error': str(error)}), 500
 
