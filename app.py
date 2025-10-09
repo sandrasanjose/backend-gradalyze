@@ -1,8 +1,3 @@
-"""
-Gradalyze Backend API Entrypoint
-Now with startup diagnostics for Supabase/Postgres connectivity and structured logging.
-"""
-
 import logging
 import os
 from typing import Optional
