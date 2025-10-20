@@ -1,0 +1,33 @@
+SUBJECT_CODES = [
+    # BSIT Codes
+    'it_fy1_sts0002', 'it_fy1_aap0007', 'it_fy1_pcm0006', 'it_fy1_mmw0001', 'it_fy1_ipp0010',
+    'it_fy1_icc0101', 'it_fy1_icc0101_1', 'it_fy1_icc0102', 'it_fy1_icc0102_1', 'it_fy1_ped0001',
+    'it_fy1_nstp01', 'it_fy2_cet0111', 'it_fy2_cet0114', 'it_fy2_cet0114_1', 'it_fy2_eit0121',
+    'it_fy2_eit0121_1a', 'it_fy2_eit0122', 'it_fy2_eit0123', 'it_fy2_eit0123_1', 'it_fy2_icc0103',
+    'it_fy2_icc0103_1', 'it_fy2_gtb121', 'it_fy2_ped0013', 'it_fy2_nstp02',
+    'it_sy1_cet0121', 'it_sy1_cet0225', 'it_sy1_cet0225_1', 'it_sy1_tcw0005', 'it_sy1_icc0104',
+    'it_sy1_icc0104_1', 'it_sy1_eit0211', 'it_sy1_eit0211_1a', 'it_sy1_ppc122',
+    'it_sy1_eit_elective1', 'it_sy1_ped0054',
+    'it_sy2_eit0221', 'it_sy2_eit0222', 'it_sy2_eit0222_1', 'it_sy2_ges0013', 'it_sy2_rph0004',
+    'it_sy2_uts0003', 'it_sy2_eit_elective2', 'it_sy2_ped0074',
+    'it_ty1_icc0335', 'it_ty1_icc0335_1', 'it_ty1_eit0311', 'it_ty1_eit0311_1',
+    'it_ty1_eit_elective3', 'it_ty1_eit0312', 'it_ty1_eit0312_1', 'it_ty1_lwr0009',
+    'it_ty2_eit0321', 'it_ty2_eit0321_1', 'it_ty2_eit0322', 'it_ty2_eit0322_1',
+    'it_ty2_eit0323', 'it_ty2_eit0323_1', 'it_ty2_eth0008', 'it_my_cap0101', 'it_my_eit0331',
+    'it_my_eit0331_1', 'it_fy4_cap0102', 'it_fy4_eit_elective4', 'it_fy4_eit_elective5',
+    'it_fy4_eit_elective6', 'it_fy4b_iip0101a', 'it_fy4b_iip0101_1',
+
+    # BSCS Codes
+    'cs_fy1_intro_comp', 'cs_fy1_fund_prog', 'cs_fy1_disc_struct1', 'cs_fy1_sts',
+    'cs_fy1_mmw', 'cs_fy1_pcm', 'cs_fy1_fil', 'cs_fy1_pe1', 'cs_fy1_nstp1',
+    'cs_fy2_intermediate_prog', 'cs_fy2_dsa', 'cs_fy2_discrete2', 'cs_fy2_hci', 'cs_fy2_tcw',
+    'cs_fy2_rph', 'cs_fy2_lwr', 'cs_fy2_group_ex', 'cs_fy2_nstp2',
+    'cs_sy1_oop', 'cs_sy1_logic_design', 'cs_sy1_or', 'cs_sy1_im', 'cs_sy1_living_it_era',
+    'cs_sy1_ethics', 'cs_sy1_uts', 'cs_sy1_pe_elective',
+    'cs_sy2_algo_complexity', 'cs_sy2_arch_org', 'cs_sy2_app_dev_emerging', 'cs_sy2_ias',
+    'cs_sy2_entre_mind', 'cs_sy2_env_sci', 'cs_sy2_art_app', 'cs_sy2_pe_elective',
+    'cs_ty1_automata', 'cs_ty1_prog_lang', 'cs_ty1_se1', 'cs_ty1_os', 'cs_ty1_intelligent_sys',
+    'cs_ty2_se2', 'cs_ty2_compiler', 'cs_ty2_comp_sci', 'cs_ty2_elective1', 'cs_ty2_research_writing',
+    'cs_ty_summer_practicum', 'cs_fy4_thesis1', 'cs_fy4_networks', 'cs_fy4_elective2', 'cs_fy4_elective3',
+    'cs_fy4b_thesis2', 'cs_fy4b_parallel_dist', 'cs_fy4b_social_prof', 'cs_fy4b_graphics_visual',
+]

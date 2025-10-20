@@ -14,6 +14,141 @@ import numpy as np
 
 bp = Blueprint('objective_2', __name__, url_prefix='/api/objective-2')
 
+# Canonical IT IDs order subset (only those we explicitly map). Indices must
+# align with the frontend order; any indices without mapping are ignored.
+# Year 1
+id_to_axes: Dict[str, List[str]] = {
+    'it_fy1_sts0002': ['S','I'],
+    'it_fy1_aap0007': ['A'],
+    'it_fy1_pcm0006': ['S','E'],
+    'it_fy1_mmw0001': ['I'],
+    'it_fy1_ipp0010': ['S','C'],
+    'it_fy1_icc0101': ['I','C'],
+    'it_fy1_icc0102': ['I','C'],
+    'it_fy1_ped0001': ['R','S'],
+    'it_fy1_nstp01': ['S','E'],
+    # Year 1 - 2nd sem
+    'it_fy2_cet0111': ['I'],
+    'it_fy2_cet0114': ['I','R'],
+    'it_fy2_eit0121': ['A','S'],
+    'it_fy2_eit0122': ['I'],
+    'it_fy2_eit0123': ['A','C'],
+    'it_fy2_icc0103': ['I','C'],
+    'it_fy2_gtb121': ['S','A'],
+    'it_fy2_ped0013': ['R','S'],
+    'it_fy2_nstp02': ['S','E'],
+    # Year 2 - 1st sem
+    'it_sy1_cet0121': ['I'],
+    'it_sy1_cet0225': ['I','R'],
+    'it_sy1_tcw0005': ['S','E'],
+    'it_sy1_icc0104': ['I','C'],
+    'it_sy1_eit0211': ['I','C'],
+    'it_sy1_ppc122': ['S','A'],
+    'it_sy1_ped0054': ['R','S'],
+    # Year 2 - 2nd sem
+    'it_sy2_eit0221': ['I'],
+    'it_sy2_eit0222': ['R','I'],
+    'it_sy2_eit0222_1': ['R','I'],
+    'it_sy2_ges0013': ['I','S'],
+    'it_sy2_rph0004': ['S','C'],
+    'it_sy2_uts0003': ['S','E'],
+    'it_sy2_ped0074': ['R','S'],
+    # Year 3 - 1st sem
+    'it_ty1_icc0335': ['I','E'],
+    'it_ty1_eit0311': ['C','I'],
+    'it_ty1_eit0311_1': ['C','I'],
+    'it_ty1_eit0312': ['R','I'],
+    'it_ty1_eit0312_1': ['R','I'],
+    'it_ty1_eit_elective3': [],
+    'it_ty1_lwr0009': ['S','E'],
+    # Year 3 - 2nd sem
+    'it_ty2_eit0321': ['R','C'],
+    'it_ty2_eit0321_1': ['R','C'],
+    'it_ty2_eit0322': ['R','C'],
+    'it_ty2_eit0322_1': ['R','C'],
+    'it_ty2_eit0323': ['I','C'],
+    'it_ty2_eit0323_1': ['I','C'],
+    'it_ty2_eth0008': ['S','C'],
+    # Midyear
+    'it_my_eit0331': ['R','C'],
+    'it_my_eit0331_1': ['R','C'],
+    'it_my_cap0101': ['E','I','S'],
+    # Year 4
+    'it_fy4_cap0102': ['E','I','S'],
+    'it_fy4_elective4': [],
+    'it_fy4_elective5': [],
+    'it_fy4_elective6': [],
+    'it_fy4b_iip0101a': ['R','E'],
+    'it_fy4b_iip0101_1': ['R','S','E'],
+}
+
+# BSCS mapping (subset) aligned with frontend CStaticTable ids
+# Uses the provided RIASEC rationale; we map to axes lists
+id_to_axes_cs: Dict[str, List[str]] = {
+    # Year 1 - 1st sem
+    'cs_fy1_intro_comp': ['I','R'],
+    'cs_fy1_fund_prog': ['I','R'],
+    'cs_fy1_disc_struct1': ['I'],
+    'cs_fy1_sts': ['I','S'],
+    'cs_fy1_mmw': ['I'],
+    'cs_fy1_pcm': ['S','E'],
+    'cs_fy1_fil': ['S','C'],
+    'cs_fy1_pe1': ['S','R'],
+    'cs_fy1_nstp1': ['S','E'],
+    # Year 1 - 2nd sem
+    'cs_fy2_intermediate_prog': ['I','R'],
+    'cs_fy2_dsa': ['I','C'],
+    'cs_fy2_discrete2': ['I'],
+    'cs_fy2_hci': ['S','I'],
+    'cs_fy2_tcw': ['S'],
+    'cs_fy2_rph': ['S','C'],
+    'cs_fy2_lwr': ['S','E'],
+    'cs_fy2_group_ex': ['S','R'],
+    'cs_fy2_nstp2': ['S','E'],
+    # Year 2 - 1st sem
+    'cs_sy1_oop': ['I','R'],
+    'cs_sy1_logic_design': ['R','I'],
+    'cs_sy1_or': ['I','C'],
+    'cs_sy1_im': ['C','I'],
+    'cs_sy1_living_it_era': ['S','I'],
+    'cs_sy1_ethics': ['S','C'],
+    'cs_sy1_uts': ['S'],
+    'cs_sy1_pe_elective': ['S','R'],
+    # Year 2 - 2nd sem
+    'cs_sy2_algo_complexity': ['I'],
+    'cs_sy2_arch_org': ['R','I'],
+    'cs_sy2_app_dev_emerging': ['I','C'],
+    'cs_sy2_ias': ['I','C'],
+    'cs_sy2_entre_mind': ['E','S'],
+    'cs_sy2_env_sci': ['I','S'],
+    'cs_sy2_art_app': ['A'],
+    'cs_sy2_pe_elective': ['S','R'],
+    # Year 3 - 1st sem
+    'cs_ty1_automata': ['I'],
+    'cs_ty1_prog_lang': ['I','R'],
+    'cs_ty1_se1': ['I','C','E'],
+    'cs_ty1_os': ['I','R'],
+    'cs_ty1_intelligent_sys': ['I','A'],
+    # Year 3 - 2nd sem
+    'cs_ty2_se2': ['I','E','C'],
+    'cs_ty2_compiler': ['I'],
+    'cs_ty2_comp_sci': ['I','C'],
+    'cs_ty2_elective1': [],
+    'cs_ty2_research_writing': ['I','C'],
+    # Year 3 - Summer
+    'cs_ty_summer_practicum': ['R','E'],
+    # Year 4 - 1st sem
+    'cs_fy4_thesis1': ['I','E'],
+    'cs_fy4_networks': ['R','I'],
+    'cs_fy4_elective2': [],
+    'cs_fy4_elective3': [],
+    # Year 4 - 2nd sem
+    'cs_fy4b_thesis2': ['I','E'],
+    'cs_fy4b_parallel_dist': ['I','R'],
+    'cs_fy4b_social_prof': ['S','C'],
+    'cs_fy4b_graphics_visual': ['A','I'],
+}
+
 @bp.route('/latest', methods=['GET'])
 def get_latest_archetype():
     """Return latest saved archetype analysis for a user by email (from denormalized columns)."""
@@ -221,144 +356,9 @@ def calculate_riasec_archetype(grades, order_ids: List[str] | None = None):
     axes = ['R', 'I', 'A', 'S', 'E', 'C']
     axis_index: Dict[str, int] = {a: i for i, a in enumerate(axes)}
 
-    # Canonical IT IDs order subset (only those we explicitly map). Indices must
-    # align with the frontend order; any indices without mapping are ignored.
-    # Year 1
-    id_to_axes: Dict[str, List[str]] = {
-        'it_fy1_sts0002': ['S','I'],
-        'it_fy1_aap0007': ['A'],
-        'it_fy1_pcm0006': ['S','E'],
-        'it_fy1_mmw0001': ['I'],
-        'it_fy1_ipp0010': ['S','C'],
-        'it_fy1_icc0101': ['I','C'],
-        'it_fy1_icc0102': ['I','C'],
-        'it_fy1_ped0001': ['R','S'],
-        'it_fy1_nstp01': ['S','E'],
-        # Year 1 - 2nd sem
-        'it_fy2_cet0111': ['I'],
-        'it_fy2_cet0114': ['I','R'],
-        'it_fy2_eit0121': ['A','S'],
-        'it_fy2_eit0122': ['I'],
-        'it_fy2_eit0123': ['A','C'],
-        'it_fy2_icc0103': ['I','C'],
-        'it_fy2_gtb121': ['S','A'],
-        'it_fy2_ped0013': ['R','S'],
-        'it_fy2_nstp02': ['S','E'],
-        # Year 2 - 1st sem
-        'it_sy1_cet0121': ['I'],
-        'it_sy1_cet0225': ['I','R'],
-        'it_sy1_tcw0005': ['S','E'],
-        'it_sy1_icc0104': ['I','C'],
-        'it_sy1_eit0211': ['I','C'],
-        'it_sy1_ppc122': ['S','A'],
-        'it_sy1_ped0054': ['R','S'],
-        # Year 2 - 2nd sem
-        'it_sy2_eit0221': ['I'],
-        'it_sy2_eit0222': ['R','I'],
-        'it_sy2_eit0222_1': ['R','I'],
-        'it_sy2_ges0013': ['I','S'],
-        'it_sy2_rph0004': ['S','C'],
-        'it_sy2_uts0003': ['S','E'],
-        'it_sy2_ped0074': ['R','S'],
-        # Year 3 - 1st sem
-        'it_ty1_icc0335': ['I','E'],
-        'it_ty1_eit0311': ['C','I'],
-        'it_ty1_eit0311_1': ['C','I'],
-        'it_ty1_eit0312': ['R','I'],
-        'it_ty1_eit0312_1': ['R','I'],
-        'it_ty1_eit_elective3': [],
-        'it_ty1_lwr0009': ['S','E'],
-        # Year 3 - 2nd sem
-        'it_ty2_eit0321': ['R','C'],
-        'it_ty2_eit0321_1': ['R','C'],
-        'it_ty2_eit0322': ['R','C'],
-        'it_ty2_eit0322_1': ['R','C'],
-        'it_ty2_eit0323': ['I','C'],
-        'it_ty2_eit0323_1': ['I','C'],
-        'it_ty2_eth0008': ['S','C'],
-        # Midyear
-        'it_my_eit0331': ['R','C'],
-        'it_my_eit0331_1': ['R','C'],
-        'it_my_cap0101': ['E','I','S'],
-        # Year 4
-        'it_fy4_cap0102': ['E','I','S'],
-        'it_fy4_elective4': [],
-        'it_fy4_elective5': [],
-        'it_fy4_elective6': [],
-        'it_fy4b_iip0101a': ['R','E'],
-        'it_fy4b_iip0101_1': ['R','S','E'],
-    }
-
     # Build the canonical order used by the frontend for the mapped subset.
     # Only these mapped IDs affect RIASEC scoring; others are ignored.
     curriculum_order: List[str] = list(id_to_axes.keys())
-
-    # BSCS mapping (subset) aligned with frontend CStaticTable ids
-    # Uses the provided RIASEC rationale; we map to axes lists
-    id_to_axes_cs: Dict[str, List[str]] = {
-        # Year 1 - 1st sem
-        'cs_fy1_intro_comp': ['I','R'],
-        'cs_fy1_fund_prog': ['I','R'],
-        'cs_fy1_disc_struct1': ['I'],
-        'cs_fy1_sts': ['I','S'],
-        'cs_fy1_mmw': ['I'],
-        'cs_fy1_pcm': ['S','E'],
-        'cs_fy1_fil': ['S','C'],
-        'cs_fy1_pe1': ['S','R'],
-        'cs_fy1_nstp1': ['S','E'],
-        # Year 1 - 2nd sem
-        'cs_fy2_intermediate_prog': ['I','R'],
-        'cs_fy2_dsa': ['I','C'],
-        'cs_fy2_discrete2': ['I'],
-        'cs_fy2_hci': ['S','I'],
-        'cs_fy2_tcw': ['S'],
-        'cs_fy2_rph': ['S','C'],
-        'cs_fy2_lwr': ['S','E'],
-        'cs_fy2_group_ex': ['S','R'],
-        'cs_fy2_nstp2': ['S','E'],
-        # Year 2 - 1st sem
-        'cs_sy1_oop': ['I','R'],
-        'cs_sy1_logic_design': ['R','I'],
-        'cs_sy1_or': ['I','C'],
-        'cs_sy1_im': ['C','I'],
-        'cs_sy1_living_it_era': ['S','I'],
-        'cs_sy1_ethics': ['S','C'],
-        'cs_sy1_uts': ['S'],
-        'cs_sy1_pe_elective': ['S','R'],
-        # Year 2 - 2nd sem
-        'cs_sy2_algo_complexity': ['I'],
-        'cs_sy2_arch_org': ['R','I'],
-        'cs_sy2_app_dev_emerging': ['I','C'],
-        'cs_sy2_ias': ['I','C'],
-        'cs_sy2_entre_mind': ['E','S'],
-        'cs_sy2_env_sci': ['I','S'],
-        'cs_sy2_art_app': ['A'],
-        'cs_sy2_pe_elective': ['S','R'],
-        # Year 3 - 1st sem
-        'cs_ty1_automata': ['I'],
-        'cs_ty1_prog_lang': ['I','R'],
-        'cs_ty1_se1': ['I','C','E'],
-        'cs_ty1_os': ['I','R'],
-        'cs_ty1_intelligent_sys': ['I','A'],
-        # Year 3 - 2nd sem
-        'cs_ty2_se2': ['I','E','C'],
-        'cs_ty2_compiler': ['I'],
-        'cs_ty2_comp_sci': ['I','C'],
-        'cs_ty2_elective1': [],
-        'cs_ty2_research_writing': ['I','C'],
-        # Year 3 - Summer
-        'cs_ty_summer_practicum': ['R','E'],
-        # Year 4 - 1st sem
-        'cs_fy4_thesis1': ['I','E'],
-        'cs_fy4_networks': ['R','I'],
-        'cs_fy4_elective2': [],
-        'cs_fy4_elective3': [],
-        # Year 4 - 2nd sem
-        'cs_fy4b_thesis2': ['I','E'],
-        'cs_fy4b_parallel_dist': ['I','R'],
-        'cs_fy4b_social_prof': ['S','C'],
-        'cs_fy4b_graphics_visual': ['A','I'],
-    }
 
     # If explicit order_ids provided from frontend, use that; else append CS ids after IT subset
     if order_ids and isinstance(order_ids, list) and all(isinstance(x, str) for x in order_ids):

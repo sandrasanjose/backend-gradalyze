@@ -1,236 +1,193 @@
 from flask import Blueprint, request, jsonify
 import io
 import re
-from typing import List, Dict, Any
+import json
+import os
+from typing import Dict, Any
+
+# OCR and PDF Processing Libraries
 import pdfplumber
 import easyocr
-from PIL import Image
 import pypdfium2 as pdfium
+from PIL import Image
 import numpy as np
-import os
-from app.services.supabase_client import get_supabase_client
+import cv2
 
-# Expose under /api/ocr-tor/*
+# Text Matching and API Libraries
+from difflib import get_close_matches
+import google.generativeai as genai
+
+# Flask and Project-Specific Imports
+from flask_cors import CORS
+from app.routes.objective_2 import id_to_axes as IT_SUBJECT_CODES, id_to_axes_cs as CS_SUBJECT_CODES
+from app.routes.subject_master_list import SUBJECT_MASTER_DICT
+
+# --- BLUEPRINT SETUP ---
 bp = Blueprint('ocr_tor', __name__, url_prefix='/api/ocr-tor')
+CORS(bp, resources={r"/api/ocr-tor/*": {"origins": "http://localhost:5173"}}, supports_credentials=True)
+
+# --- INITIALIZE OCR ENGINE ---
+try:
+    EASYOCR_READER = easyocr.Reader(['en'], gpu=False)
+    print("[OCR_TOR] EasyOCR reader initialized successfully.")
+except Exception as e:
+    EASYOCR_READER = None
+    print(f"[OCR_TOR] WARNING: Failed to initialize EasyOCR reader: {e}")
+
+# --- INITIALIZE GEMINI API ---
+try:
+    GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
+    if not GEMINI_API_KEY:
+        gemini_model = None
+        print("[OCR_TOR] WARNING: GEMINI_API_KEY not found. Gemini refinement is disabled.")
+    else:
+        genai.configure(api_key=GEMINI_API_KEY)
+        # This model name is correct and will work with the updated library
+        gemini_model = genai.GenerativeModel('models/gemini-pro-latest')
+        print("[OCR_TOR] Gemini model initialized successfully.")
+except Exception as e:
+    gemini_model = None
+    print(f"[OCR_TOR] WARNING: Failed to initialize Gemini model: {e}")
+
+# --- MASTER SUBJECT LIST ---
+MASTER_SUBJECT_INFO = {code: info['title'].strip() for code, info in SUBJECT_MASTER_DICT.items()}
+OFFICIAL_SUBJECTS = list(MASTER_SUBJECT_INFO.values())
+
+def refine_with_gemini_layout_aware(ocr_results: list) -> Dict[str, Any]:
+    """Uses Gemini to parse structured OCR data for better accuracy."""
+    if not gemini_model:
+        return {}
+
+    print("[OCR_TOR] Attempting layout-aware refinement with Gemini...")
+    ocr_data_for_prompt = [f'text: "{text}", position: ({int(bbox[0][0])}, {int(bbox[0][1])})' for (bbox, text, prob) in ocr_results]
+
+    prompt = f"""
+        You are an expert at reading academic transcripts. Below is OCR data with text and (x, y) coordinates.
+        Accurately match each subject title with its final grade. The grade is usually in a column to the right.
+
+        Reference Subject List:
+        {json.dumps(OFFICIAL_SUBJECTS, indent=2)}
+
+        OCR Data:
+        ---
+        {chr(10).join(ocr_data_for_prompt)}
+        ---
+
+        Return a clean JSON array of objects, where each object has a "subject" and a "grade" key. Match subjects to the reference list and ensure grades are numbers.
+        Return only the JSON array.
+        """
+    try:
+        request_options = {"timeout": 100}
+        response = gemini_model.generate_content(prompt, request_options=request_options)
+        
+        cleaned_json_text = response.text.strip().replace("```json", "").replace("```", "")
+        extracted_data = json.loads(cleaned_json_text)
+
+        grades, grade_values, subject_pairs = [], [], []
+        if isinstance(extracted_data, list):
+            for item in extracted_data:
+                if isinstance(item, dict) and 'subject' in item and 'grade' in item:
+                    try:
+                        grade_value = float(item['grade'])
+                        subject = str(item['subject'])
+                        grades.append({'subject': subject, 'grade': grade_value})
+                        grade_values.append(grade_value)
+                        subject_pairs.append({'subject': subject, 'grade': grade_value})
+                    except (ValueError, TypeError):
+                        continue
+        print(f"[OCR_TOR] Gemini refinement successful. Extracted {len(grades)} pairs.")
+        return {'grade_values': grade_values, 'grades': grades, 'subject_pairs': subject_pairs}
+    except Exception as e:
+        print(f"[OCR_TOR] Gemini refinement failed: {e}")
+        return {}
+
+
+def fuzzy_subject_match(line_text: str) -> str | None:
+    line_lower = line_text.lower()
+    for subject in OFFICIAL_SUBJECTS:
+        if subject.lower() in line_lower:
+            return subject
+    matches = get_close_matches(line_lower, OFFICIAL_SUBJECTS, n=1, cutoff=0.7)
+    return matches[0] if matches else None
+
+def has_meaningful_text(text: str) -> bool:
+    if not text or len(text.strip()) < 50: return False
+    return any(char.isdigit() for char in text)
 
 def extract_grades_from_tor(file_bytes: bytes, filename: str) -> Dict[str, Any]:
-    """Extract text and clean grade list from a TOR PDF using EasyOCR."""
     full_text = ""
+    raw_ocr_results = []
 
     try:
-        print(f"[OCR_TOR] Starting EasyOCR extraction for {filename}")
-        reader = easyocr.Reader(['en'])
-        pdf = pdfium.PdfDocument(io.BytesIO(file_bytes))
-        print(f"[OCR_TOR] PDF has {len(pdf)} pages")
+        with pdfplumber.open(io.BytesIO(file_bytes)) as pdf:
+            temp_text = "".join(page.extract_text() or "" for page in pdf.pages)
+        if has_meaningful_text(temp_text):
+            full_text = temp_text
+            print(f"[OCR_TOR] Text extracted using pdfplumber for {filename}.")
+    except Exception:
+        print(f"[OCR_TOR] Not a text-based PDF. Defaulting to EasyOCR.")
 
-        for i in range(len(pdf)):
-            page = pdf[i]
-            print(f"[OCR_TOR] Processing page {i+1}...")
+    if not full_text:
+        if not EASYOCR_READER:
+            return {'full_text': "OCR Error: EasyOCR is not initialized.", 'grades': [], 'grade_values': [], 'subject_pairs': []}
+        try:
+            print(f"[OCR_TOR] Starting EasyOCR extraction for {filename}")
+            pdf = pdfium.PdfDocument(io.BytesIO(file_bytes))
+            for i, page in enumerate(pdf):
+                print(f"[OCR_TOR] Processing page {i+1}/{len(pdf)} with EasyOCR...")
+                # Reduced scale for much faster processing
+                pil_image = page.render(scale=2).to_pil()
+                image_np = np.array(pil_image)
+                
+                results = EASYOCR_READER.readtext(image_np, detail=1)
+                raw_ocr_results.extend(results)
+                full_text += " ".join([res[1] for res in results]) + "\n"
+        except Exception as ocr_error:
+            full_text = f"OCR Error: {str(ocr_error)}"
+            print(f"[OCR_TOR] EasyOCR extraction failed: {ocr_error}")
 
-            bmp = page.render(scale=2)
-            try:
-                pil_image = bmp.to_pil()
-            finally:
-                del bmp
+    if raw_ocr_results and gemini_model:
+        gemini_results = refine_with_gemini_layout_aware(raw_ocr_results)
+        if gemini_results.get('grades'):
+            return {**gemini_results, 'full_text': full_text}
 
-            pil_image = pil_image.convert('RGB')
-            image_array = np.array(pil_image)
-
-            results = reader.readtext(image_array)
-            page_text = " ".join(
-                text for (_, text, conf) in results if conf > 0.5
-            )
-            full_text += " " + page_text
-            print(f"[OCR_TOR] Page {i+1} extracted {len(page_text)} characters")
-
-    except Exception as ocr_error:
-        print(f"[OCR_TOR] EasyOCR failed: {ocr_error}")
-        full_text = f"OCR Error: {str(ocr_error)}"
-
-    # ----------------------------
-    # 🔍 Parse Grades from Text
-    # ----------------------------
-    grades = []
-    grade_values = []
-
-    try:
-        # Simple regex for grades 1.00–3.00 (exact matches)
-        pattern = re.compile(r'\b[123]\.\d{2}\b')
-        matches = pattern.findall(full_text)
-        print(f"[OCR_TOR] Found {len(matches)} grade matches")
-
-        for match in matches:
-            grade_values.append(float(match))
-            print(f"Found grade: {match}")
-
-    except Exception as parse_error:
-        print(f"[OCR_TOR] Grade parsing failed: {parse_error}")
+    print("[OCR_TOR] Gemini failed or was not used. Falling back to simple regex method.")
+    grades, grade_values, subject_pairs = [], [], []
+    grade_pattern = re.compile(r'\b[1-5]\.\d{2}\b')
+    if full_text and "OCR Error" not in full_text:
+        for line in full_text.split('\n'):
+            found_grades = grade_pattern.findall(line)
+            if not found_grades: continue
+            subject_match = fuzzy_subject_match(line)
+            if subject_match:
+                for g in found_grades:
+                    grade = float(g)
+                    grades.append({'subject': subject_match, 'grade': grade})
+                    subject_pairs.append({'subject': subject_match, 'grade': grade})
+                    grade_values.append(grade)
 
     return {
-        'grade_values': grade_values,
-        'grades': grades,
-        'full_text': full_text
+        'grade_values': grade_values, 'grades': grades,
+        'subject_pairs': subject_pairs, 'full_text': full_text
     }
 
-@bp.route('/process', methods=['POST', 'OPTIONS'])
-def process_tor_extract_grades():
-    """Endpoint to extract grades from uploaded TOR and return only the grade values array."""
-    try:
-        if request.method == 'OPTIONS':
-            return ('', 204)
 
-        # Get file from request
-        if 'file' not in request.files:
-            return jsonify({'error': 'No file provided'}), 400
-        
-        file = request.files['file']
-        if file.filename == '':
-            return jsonify({'error': 'No file selected'}), 400
-        
-        if not file.filename.lower().endswith('.pdf'):
-            return jsonify({'error': 'File must be a PDF'}), 400
-        
-        # Read file bytes
+@bp.route('/process', methods=['POST'])
+def process_tor_endpoint():
+    if 'file' not in request.files:
+        return jsonify({'error': 'No file part in the request'}), 400
+    file = request.files['file']
+    if file.filename == '':
+        return jsonify({'error': 'No file selected for uploading'}), 400
+    if not file.filename.lower().endswith('.pdf'):
+        return jsonify({'error': 'Invalid file type, please upload a PDF'}), 400
+
+    try:
         file_bytes = file.read()
         filename = file.filename
-        
-        print(f"[OCR_TOR] Processing file: {filename} ({len(file_bytes)} bytes)")
-        
-        # Extract text using OCR
+        print(f"[OCR_TOR] Received file for processing: {filename}")
         result = extract_grades_from_tor(file_bytes, filename)
-        
-        # Return the cleaned grade values array and full text for debugging
-        return jsonify({
-            'success': True,
-            'grade_values': result['grade_values'],
-            'full_text': result['full_text']
-        }), 200
-        
-    except Exception as error:
-        print(f"[OCR_TOR] Error: {error}")
-        return jsonify({'error': str(error)}), 500
-
-@bp.route('/get', methods=['GET'])
-@bp.route('/get/<int:user_id>', methods=['GET'])
-def get_grades(user_id=None):
-    """Get stored grades for a user."""
-    try:
-        # Handle both email and user_id parameters
-        email = request.args.get('email')
-        if not email and not user_id:
-            return jsonify({'error': 'Email or user_id is required'}), 400
-        
-        supabase = get_supabase_client()
-        
-        if user_id:
-            # Query by user ID
-            result = supabase.table('users').select('grades').eq('id', user_id).execute()
-        else:
-            # Query by email
-            result = supabase.table('users').select('grades').eq('email', email).execute()
-        
-        if not result.data:
-            return jsonify({'error': 'User not found'}), 404
-        
-        grades = result.data[0].get('grades', [])
-        return jsonify({'grades': grades}), 200
-        
-    except Exception as error:
-        return jsonify({'error': str(error)}), 500
-
-@bp.route('/update', methods=['POST'])
-def update_grades():
-    """Update grades for a user."""
-    try:
-        data = request.get_json()
-        email = data.get('email')
-        grades = data.get('grades', [])
-        
-        if not email:
-            return jsonify({'error': 'Email is required'}), 400
-
-        supabase = get_supabase_client()
-        result = supabase.table('users').update({'grades': grades}).eq('email', email).execute()
-        
-        if not result.data:
-            return jsonify({'error': 'User not found'}), 404
-        
-        return jsonify({'success': True, 'grades': grades}), 200
-        
-    except Exception as error:
-        return jsonify({'error': str(error)}), 500
-
-@bp.route('/update/<int:user_id>', methods=['POST'])
-def update_grades_by_id(user_id):
-    """Update grades for a user by ID."""
-    try:
-        data = request.get_json()
-        grades = data.get('grades', [])
-        
-        if not grades:
-            return jsonify({'error': 'Grades are required'}), 400
-
-        supabase = get_supabase_client()
-        result = supabase.table('users').update({'grades': grades}).eq('id', user_id).execute()
-        
-        if not result.data:
-            return jsonify({'error': 'User not found'}), 404
-        
-        return jsonify({'success': True, 'grades': grades}), 200
-        
-    except Exception as error:
-        return jsonify({'error': str(error)}), 500
-
-@bp.route('/add', methods=['POST'])
-def add_grade():
-    """Add a single grade to a user's grades."""
-    try:
-        data = request.get_json()
-        email = data.get('email')
-        grade = data.get('grade')
-        
-        if not email or not grade:
-            return jsonify({'error': 'Email and grade are required'}), 400
-            
-        supabase = get_supabase_client()
-        result = supabase.table('users').select('grades').eq('email', email).execute()
-        
-        if not result.data:
-            return jsonify({'error': 'User not found'}), 404
-        
-        current_grades = result.data[0].get('grades', [])
-        current_grades.append(grade)
-        
-        update_result = supabase.table('users').update({'grades': current_grades}).eq('email', email).execute()
-        
-        return jsonify({'success': True, 'grades': current_grades}), 200
-        
-    except Exception as error:
-        return jsonify({'error': str(error)}), 500
-
-@bp.route('/delete', methods=['DELETE'])
-def delete_grade():
-    """Delete a grade from a user's grades."""
-    try:
-        data = request.get_json()
-        email = data.get('email')
-        grade_id = data.get('grade_id')
-        
-        if not email or not grade_id:
-            return jsonify({'error': 'Email and grade_id are required'}), 400
-        
-        supabase = get_supabase_client()
-        result = supabase.table('users').select('grades').eq('email', email).execute()
-        
-        if not result.data:
-            return jsonify({'error': 'User not found'}), 404
-        
-        current_grades = result.data[0].get('grades', [])
-        updated_grades = [g for g in current_grades if g.get('id') != grade_id]
-        
-        update_result = supabase.table('users').update({'grades': updated_grades}).eq('email', email).execute()
-        
-        return jsonify({'success': True, 'grades': updated_grades}), 200
-        
-    except Exception as error:
-        return jsonify({'error': str(error)}), 500
+        return jsonify({'success': True, **result}), 200
+    except Exception as e:
+        print(f"[OCR_TOR] An unexpected error occurred: {e}")
+        return jsonify({'error': f'An internal error occurred: {e}'}), 500
