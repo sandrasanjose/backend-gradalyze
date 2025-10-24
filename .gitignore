@@ -4,3 +4,25 @@ models/
 
 
 node_modules
+
+# Virtual environment
+venv/
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Large / generated files
+*.dll
+*.pyd
+*.joblib
+*.pkl
+*.pt
+*.h5
+*.zip
+*.rar
+
+# Logs and misc
+*.log
+.cache/
+.env
