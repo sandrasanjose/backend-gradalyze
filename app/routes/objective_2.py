@@ -18,135 +18,191 @@ bp = Blueprint('objective_2', __name__, url_prefix='/api/objective-2')
 # align with the frontend order; any indices without mapping are ignored.
 # Year 1
 id_to_axes: Dict[str, List[str]] = {
-    'it_fy1_sts0002': ['S','I'],
-    'it_fy1_aap0007': ['A'],
-    'it_fy1_pcm0006': ['S','E'],
-    'it_fy1_mmw0001': ['I'],
+   # --- BSIT Year 1 / First Semester ---
+    'it_fy1_icc0101': ['I','R'],
+    'it_fy1_icc0101_1': ['R'],
+    'it_fy1_icc0102': ['I','R'],
+    'it_fy1_icc0102_1': ['R','I'],
     'it_fy1_ipp0010': ['S','C'],
-    'it_fy1_icc0101': ['I','C'],
-    'it_fy1_icc0102': ['I','C'],
-    'it_fy1_ped0001': ['R','S'],
+    'it_fy1_mmw0001': ['I'],
+    'it_fy1_pcm0006': ['S','E'],
+    'it_fy1_sts0002': ['I','S'],
+    'it_fy1_aap0007': ['A'],
+    'it_fy1_ped0001': ['S','R'],
     'it_fy1_nstp01': ['S','E'],
-    # Year 1 - 2nd sem
+
+# --- BSIT Year 1 / Second Semester ---
     'it_fy2_cet0111': ['I'],
     'it_fy2_cet0114': ['I','R'],
+    'it_fy2_cet0114_1': ['R','I'],
     'it_fy2_eit0121': ['A','S'],
+    'it_fy2_eit0121_1a': ['A','R'],
     'it_fy2_eit0122': ['I'],
-    'it_fy2_eit0123': ['A','C'],
-    'it_fy2_icc0103': ['I','C'],
+    'it_fy2_eit0123': ['A','I'],
+    'it_fy2_eit0123_1': ['A','R'],
     'it_fy2_gtb121': ['S','A'],
-    'it_fy2_ped0013': ['R','S'],
-    'it_fy2_nstp02': ['S','E'],
-    # Year 2 - 1st sem
+    'it_fy2_icc0103': ['I','R'],
+    'it_fy2_icc0103_1': ['R','I'],
+    'it_fy2_ped0013': ['R','S'], # Not in PDF, used your provided code
+    'it_fy2_nstp02': ['S','E'], # Not in PDF, used your provided code
+
+# --- BSIT Year 2 / First Semester ---
     'it_sy1_cet0121': ['I'],
     'it_sy1_cet0225': ['I','R'],
+    'it_sy1_cet0225_1': ['R','I'],
+    'it_sy1_eit0211': ['I','R'],
+    'it_sy1_eit0211_1a': ['R','I'],
+    'it_sy1_eit_elective1': ['C','I'],
+    'it_sy1_icc0104': ['I'],
+    'it_sy1_icc0104_1': ['R','I'],
+    'it_sy1_ppc122': ['A','S'],
     'it_sy1_tcw0005': ['S','E'],
-    'it_sy1_icc0104': ['I','C'],
-    'it_sy1_eit0211': ['I','C'],
-    'it_sy1_ppc122': ['S','A'],
-    'it_sy1_ped0054': ['R','S'],
-    # Year 2 - 2nd sem
-    'it_sy2_eit0221': ['I'],
-    'it_sy2_eit0222': ['R','I'],
-    'it_sy2_eit0222_1': ['R','I'],
+    'it_sy1_ped0054': ['S','R'],
+
+# --- BSIT Year 2 / Second Semester ---
+    'it_sy2_eit0212': ['R','I'],
+    'it_sy2_eit0221': ['I','C'],
+    'it_sy2_eit0222': ['R','C'],
+    'it_sy2_eit0222_1': ['R'],
+    'it_sy2_eit_elective2': ['C','E','I'],
     'it_sy2_ges0013': ['I','S'],
+    'it_sy2_icc0105': ['C','I'],
+    'it_sy2_icc0105_1': ['R','C'],
     'it_sy2_rph0004': ['S','C'],
-    'it_sy2_uts0003': ['S','E'],
-    'it_sy2_ped0074': ['R','S'],
-    # Year 3 - 1st sem
-    'it_ty1_icc0335': ['I','E'],
+    'it_sy2_uts0003': ['S'],
+    'it_sy2_ped0074': ['S','R'],
+
+# --- BSIT Year 3 / First Semester ---
     'it_ty1_eit0311': ['C','I'],
-    'it_ty1_eit0311_1': ['C','I'],
+    'it_ty1_eit0311_1': ['R','C'],
     'it_ty1_eit0312': ['R','I'],
-    'it_ty1_eit0312_1': ['R','I'],
-    'it_ty1_eit_elective3': [],
+    'it_ty1_eit0312_1': ['R'],
+    'it_ty1_eit_elective3': ['I','C','E'],
+    'it_ty1_icc0335': ['I','C'],
+    'it_ty1_icc0335_1': ['R','I'],
     'it_ty1_lwr0009': ['S','E'],
-    # Year 3 - 2nd sem
-    'it_ty2_eit0321': ['R','C'],
-    'it_ty2_eit0321_1': ['R','C'],
-    'it_ty2_eit0322': ['R','C'],
-    'it_ty2_eit0322_1': ['R','C'],
-    'it_ty2_eit0323': ['I','C'],
-    'it_ty2_eit0323_1': ['I','C'],
+
+# --- BSIT Year 3 / Second Semester ---
+    'it_ty2_eit0321': ['I','C'],
+    'it_ty2_eit0321_1': ['R','I'],
+    'it_ty2_eit0322': ['I','R'],
+    'it_ty2_eit0322_1': ['R','I'],
+    'it_ty2_eit0323': ['I','A'],
+    'it_ty2_eit0323_1': ['A','R'],
     'it_ty2_eth0008': ['S','C'],
-    # Midyear
-    'it_my_eit0331': ['R','C'],
-    'it_my_eit0331_1': ['R','C'],
-    'it_my_cap0101': ['E','I','S'],
-    # Year 4
-    'it_fy4_cap0102': ['E','I','S'],
-    'it_fy4_elective4': [],
-    'it_fy4_elective5': [],
-    'it_fy4_elective6': [],
-    'it_fy4b_iip0101a': ['R','E'],
-    'it_fy4b_iip0101_1': ['R','S','E'],
+
+# --- BSIT Year 3 / Midyear/Summer Term ---
+    'it_my_cap0101': ['I','E'],
+    'it_my_eit0331': ['I','R'],
+    'it_my_eit0331_1': ['R','I'],
+
+# --- BSIT Year 4 / First Semester ---
+    'it_fy4_cap0102': ['I','E'],
+    'it_fy4_eit_elective4': ['I','R'],
+    'it_fy4_eit_elective5': ['C','I'],
+    'it_fy4_eit_elective6': ['S','E'],
+
+# --- BSIT Year 4 / Second Semester ---
+    'it_fy4b_iip0101a': ['S','R'],
+    'it_fy4b_iip0101_1': ['R','E'],
 }
 
 # BSCS mapping (subset) aligned with frontend CStaticTable ids
 # Uses the provided RIASEC rationale; we map to axes lists
 id_to_axes_cs: Dict[str, List[str]] = {
-    # Year 1 - 1st sem
-    'cs_fy1_intro_comp': ['I','R'],
-    'cs_fy1_fund_prog': ['I','R'],
-    'cs_fy1_disc_struct1': ['I'],
-    'cs_fy1_sts': ['I','S'],
-    'cs_fy1_mmw': ['I'],
-    'cs_fy1_pcm': ['S','E'],
-    'cs_fy1_fil': ['S','C'],
-    'cs_fy1_pe1': ['S','R'],
-    'cs_fy1_nstp1': ['S','E'],
-    # Year 1 - 2nd sem
-    'cs_fy2_intermediate_prog': ['I','R'],
-    'cs_fy2_dsa': ['I','C'],
-    'cs_fy2_discrete2': ['I'],
-    'cs_fy2_hci': ['S','I'],
-    'cs_fy2_tcw': ['S'],
-    'cs_fy2_rph': ['S','C'],
-    'cs_fy2_lwr': ['S','E'],
-    'cs_fy2_group_ex': ['S','R'],
-    'cs_fy2_nstp2': ['S','E'],
-    # Year 2 - 1st sem
-    'cs_sy1_oop': ['I','R'],
-    'cs_sy1_logic_design': ['R','I'],
-    'cs_sy1_or': ['I','C'],
-    'cs_sy1_im': ['C','I'],
-    'cs_sy1_living_it_era': ['S','I'],
-    'cs_sy1_ethics': ['S','C'],
-    'cs_sy1_uts': ['S'],
-    'cs_sy1_pe_elective': ['S','R'],
-    # Year 2 - 2nd sem
-    'cs_sy2_algo_complexity': ['I'],
-    'cs_sy2_arch_org': ['R','I'],
-    'cs_sy2_app_dev_emerging': ['I','C'],
-    'cs_sy2_ias': ['I','C'],
-    'cs_sy2_entre_mind': ['E','S'],
-    'cs_sy2_env_sci': ['I','S'],
-    'cs_sy2_art_app': ['A'],
-    'cs_sy2_pe_elective': ['S','R'],
-    # Year 3 - 1st sem
-    'cs_ty1_automata': ['I'],
-    'cs_ty1_prog_lang': ['I','R'],
-    'cs_ty1_se1': ['I','C','E'],
-    'cs_ty1_os': ['I','R'],
-    'cs_ty1_intelligent_sys': ['I','A'],
-    # Year 3 - 2nd sem
-    'cs_ty2_se2': ['I','E','C'],
-    'cs_ty2_compiler': ['I'],
-    'cs_ty2_comp_sci': ['I','C'],
-    'cs_ty2_elective1': [],
-    'cs_ty2_research_writing': ['I','C'],
-    # Year 3 - Summer
-    'cs_ty_summer_practicum': ['R','E'],
-    # Year 4 - 1st sem
-    'cs_fy4_thesis1': ['I','E'],
-    'cs_fy4_networks': ['R','I'],
-    'cs_fy4_elective2': [],
-    'cs_fy4_elective3': [],
-    # Year 4 - 2nd sem
-    'cs_fy4b_thesis2': ['I','E'],
-    'cs_fy4b_parallel_dist': ['I','R'],
-    'cs_fy4b_social_prof': ['S','C'],
-    'cs_fy4b_graphics_visual': ['A','I'],
+    # --- BSCS Year 1 / First Semester ---
+    'cs_fy1_csc0102': ['I'],
+    'cs_fy1_icc0101': ['I','R'],
+    'cs_fy1_icc0101_1': ['R'],
+    'cs_fy1_icc0102': ['I','R'],
+    'cs_fy1_icc0102_1': ['R','I'],
+    'cs_fy1_ipp0010': ['S','C'],
+    'cs_fy1_mmw0001': ['I'],
+    'cs_fy1_ped0001': ['S','R'],
+    'cs_fy1_pcm0006': ['S','E'],  
+    'cs_fy1_sts0002': ['I','S'],
+    'cs_fy1_nstp0001': ['S','E'],
+
+    # --- BSCS Year 1 / Second Semester ---
+    'cs_fy2_csc0211': ['I'],  
+    'cs_fy2_csc0223': ['A','S'],
+    'cs_fy2_icc0103': ['I','R'],
+    'cs_fy2_icc0103_1': ['R','I'],
+    'cs_fy2_icc0104': ['I'],
+    'cs_fy2_icc0104_1': ['R','I'],
+    'cs_fy2_lwr0009': ['S','E'],
+    'cs_fy2_ped0012': ['S','R'],
+    'cs_fy2_rph0004': ['S','C'],
+    'cs_fy2_tcw0005': ['S','E'],
+    'cs_fy2_nstp02': ['S','E'],
+
+    # --- BSCS Year 2 / First Semester ---  
+    'cs_sy1_csc0212': ['I','R'],
+    'cs_sy1_csc0212_1': ['R','I'],
+    'cs_sy1_csc0213': ['R','I'],
+    'cs_sy1_csc0213_1': ['R'],
+    'cs_sy1_csc0224': ['I','C'],
+    'cs_sy1_eth0008': ['S','C'],
+    'cs_sy1_icc0105': ['C','I'],
+    'cs_sy1_icc0105_1': ['R','C'],
+    'cs_sy1_ite0001': ['S','I'],
+    'cs_sy1_ped0074': ['S','R'],
+    'cs_sy1_uts0003': ['S'],
+
+    # --- BSCS Year 2 / Second Semester ---
+    'cs_sy2_cbm0016': ['E','S'],
+    'cs_sy2_csc0221': ['I'],
+    'cs_sy2_csc0222': ['R','I'],
+    'cs_sy2_csc0222_1': ['R'],
+    'cs_sy2_csc0316': ['I','C'],
+    'cs_sy2_ges0013': ['I','S'],
+    'cs_sy2_icc0106': ['I','C'],
+    'cs_sy2_icc0106_1': ['R','I'],
+    'cs_sy2_ped0023': ['S','R'],
+    'cs_sy2_aap0007': ['A'],
+
+    # --- BSCS Year 3 / First Semester ---
+    'cs_ty1_csc0311': ['I'],
+    'cs_ty1_csc0311_1': ['I'],
+    'cs_ty1_csc0312': ['I','R'],
+    'cs_ty1_csc0312_1': ['R','I'],
+    'cs_ty1_csc0313': ['I','C','E'],
+    'cs_ty1_csc0313_1': ['R','C'],
+    'cs_ty1_csc0314': ['I','R'],
+    'cs_ty1_csc0314_1': ['R','I'],
+    'cs_ty1_csc0315': ['I','A'],
+    'cs_ty1_csc0315_1': ['R','I'],
+
+    # --- BSCS Year 3 / Second Semester ---
+    'cs_ty2_csc0321': ['I','E','C'],
+    'cs_ty2_csc0321_1': ['R','C'],
+    'cs_ty2_csc0322': ['I'],
+    'cs_ty2_csc0322_1': ['R','I'],
+    'cs_ty2_csc0323': ['I','C'],
+    'cs_ty2_csc0323_1': ['R','I'],
+    'cs_ty2_csc0324': ['I','A','R'],
+    'cs_ty2_csc0324_1': ['I','A','R'],
+    'cs_ty2_csc0325': ['I','C'],
+
+    # --- BSCS Year 3 / Midyear/Summer Term ---
+    'cs_ty_csc195_1': ['R','E'],
+
+    # --- BSCS Year 4 / First Semester ---
+    'cs_fy4_csc0411': ['I','E'],
+    'cs_fy4_csc0412': ['R','I'],
+    'cs_fy4_csc0412_1': ['R'],
+    'cs_fy4_csc0413': ['I','C','E'],
+    'cs_fy4_csc0413_1': ['I','C','E'],
+    'cs_fy4_csc0414': ['A','E','C'],
+    'cs_fy4_csc0414_1': ['A','E','C'],
+
+    # --- BSCS Year 4 / Second Semester ---
+    'cs_fy4b_csc0421a': ['I','E'],
+    'cs_fy4b_csc0422': ['I','R'],
+    'cs_fy4b_csc0422_1': ['R','I'],
+    'cs_fy4b_csc0423': ['S','C'],
+    'cs_fy4b_csc0424': ['A','I'],
+    'cs_fy4b_csc0424_1': ['A','R'],
 }
 
 @bp.route('/latest', methods=['GET'])
@@ -170,12 +226,12 @@ def get_latest_archetype():
         analysis = {
             'primary_archetype': row.get('primary_archetype'),
             'archetype_percentages': {
-                'realistic': row.get('archetype_realistic_percentage'),
-                'investigative': row.get('archetype_investigative_percentage'),
-                'artistic': row.get('archetype_artistic_percentage'),
-                'social': row.get('archetype_social_percentage'),
-                'enterprising': row.get('archetype_enterprising_percentage'),
-                'conventional': row.get('archetype_conventional_percentage')
+                'Realistic': row.get('archetype_realistic_percentage'),
+                'Investigative': row.get('archetype_investigative_percentage'),
+                'Artistic': row.get('archetype_artistic_percentage'),
+                'Social': row.get('archetype_social_percentage'),
+                'Enterprising': row.get('archetype_enterprising_percentage'),
+                'Conventional': row.get('archetype_conventional_percentage')
             }
         }
 
@@ -425,31 +481,31 @@ def calculate_riasec_archetype(grades, order_ids: List[str] | None = None):
     # Determine primary archetype by highest percentage
     max_idx = int(np.argmax(percentages))
     axis_to_name = {
-        'R': 'realistic',
-        'I': 'investigative',
-        'A': 'artistic',
-        'S': 'social',
-        'E': 'enterprising',
-        'C': 'conventional',
+        'R': 'Realistic',
+        'I': 'Investigative',
+        'A': 'Artistic',
+        'S': 'Social',
+        'E': 'Enterprising',
+        'C': 'Conventional',
     }
     primary = axis_to_name.get(axes[max_idx], axes[max_idx].lower())
 
     return {
         'primary_archetype': primary,
         'archetype_percentages': {
-            'realistic': round(float(percentages[axis_index['R']]), 2),
-            'investigative': round(float(percentages[axis_index['I']]), 2),
-            'artistic': round(float(percentages[axis_index['A']]), 2),
-            'social': round(float(percentages[axis_index['S']]), 2),
-            'enterprising': round(float(percentages[axis_index['E']]), 2),
-            'conventional': round(float(percentages[axis_index['C']]), 2)
+            'Realistic': round(float(percentages[axis_index['R']]), 2),
+            'Investigative': round(float(percentages[axis_index['I']]), 2),
+            'Artistic': round(float(percentages[axis_index['A']]), 2),
+            'Social': round(float(percentages[axis_index['S']]), 2),
+            'Enterprising': round(float(percentages[axis_index['E']]), 2),
+            'Conventional': round(float(percentages[axis_index['C']]), 2)
         },
         'archetype_scores': {
-            'realistic': round(float(scores[axis_index['R']]), 3),
-            'investigative': round(float(scores[axis_index['I']]), 3),
-            'artistic': round(float(scores[axis_index['A']]), 3),
-            'social': round(float(scores[axis_index['S']]), 3),
-            'enterprising': round(float(scores[axis_index['E']]), 3),
-            'conventional': round(float(scores[axis_index['C']]), 3)
+            'Realistic': round(float(scores[axis_index['R']]), 3),
+            'Investigative': round(float(scores[axis_index['I']]), 3),
+            'Artistic': round(float(scores[axis_index['A']]), 3),
+            'Social': round(float(scores[axis_index['S']]), 3),
+            'Enterprising': round(float(scores[axis_index['E']]), 3),
+            'Conventional': round(float(scores[axis_index['C']]), 3)
         }
     }
