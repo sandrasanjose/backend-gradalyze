@@ -21,6 +21,7 @@ import google.generativeai as genai
 from flask_cors import CORS
 from app.routes.objective_2 import id_to_axes as IT_SUBJECT_CODES, id_to_axes_cs as CS_SUBJECT_CODES
 from app.routes.subject_master_list import SUBJECT_MASTER_DICT
+from app.services.supabase_client import get_supabase_client
 
 # --- BLUEPRINT SETUP ---
 bp = Blueprint('ocr_tor', __name__, url_prefix='/api/ocr-tor')
@@ -191,3 +192,66 @@ def process_tor_endpoint():
     except Exception as e:
         print(f"[OCR_TOR] An unexpected error occurred: {e}")
         return jsonify({'error': f'An internal error occurred: {e}'}), 500
+
+# --- Grades CRUD over users.grades ---
+@bp.route('/get/<int:user_id>', methods=['GET'])
+def get_user_grades(user_id: int):
+    try:
+        supabase = get_supabase_client()
+        resp = supabase.table('users').select('grades').eq('id', user_id).limit(1).execute()
+        if not resp.data:
+            return jsonify({'message': 'User not found'}), 404
+        grades = resp.data[0].get('grades') or []
+        return jsonify({'grades': grades}), 200
+    except Exception as e:
+        return jsonify({'message': 'Failed to get grades', 'error': str(e)}), 500
+
+@bp.route('/update/<int:user_id>', methods=['POST'])
+def update_user_grades(user_id: int):
+    try:
+        payload = request.get_json(silent=True) or {}
+        grades = payload.get('grades') or []
+        supabase = get_supabase_client()
+        upd = supabase.table('users').update({'grades': grades}).eq('id', user_id).execute()
+        saved = (upd.data[0].get('grades') if upd.data else grades) or grades
+        return jsonify({'message': 'updated', 'grades': saved}), 200
+    except Exception as e:
+        return jsonify({'message': 'Failed to update grades', 'error': str(e)}), 500
+
+@bp.route('/add/<int:user_id>', methods=['POST'])
+def add_user_grade(user_id: int):
+    try:
+        payload = request.get_json(silent=True) or {}
+        grade = payload.get('grade') or None
+        if grade is None:
+            return jsonify({'message': 'grade is required'}), 400
+        supabase = get_supabase_client()
+        resp = supabase.table('users').select('grades').eq('id', user_id).limit(1).execute()
+        if not resp.data:
+            return jsonify({'message': 'User not found'}), 404
+        grades = resp.data[0].get('grades') or []
+        grades.append(grade)
+        upd = supabase.table('users').update({'grades': grades}).eq('id', user_id).execute()
+        saved = (upd.data[0].get('grades') if upd.data else grades) or grades
+        return jsonify({'message': 'added', 'grades': saved}), 200
+    except Exception as e:
+        return jsonify({'message': 'Failed to add grade', 'error': str(e)}), 500
+
+@bp.route('/delete/<int:user_id>', methods=['POST'])
+def delete_user_grade(user_id: int):
+    try:
+        payload = request.get_json(silent=True) or {}
+        grade_id = payload.get('grade_id')
+        if not grade_id:
+            return jsonify({'message': 'grade_id is required'}), 400
+        supabase = get_supabase_client()
+        resp = supabase.table('users').select('grades').eq('id', user_id).limit(1).execute()
+        if not resp.data:
+            return jsonify({'message': 'User not found'}), 404
+        grades = resp.data[0].get('grades') or []
+        new_grades = [g for g in grades if (g or {}).get('id') != grade_id]
+        upd = supabase.table('users').update({'grades': new_grades}).eq('id', user_id).execute()
+        saved = (upd.data[0].get('grades') if upd.data else new_grades) or new_grades
+        return jsonify({'message': 'deleted', 'grades': saved}), 200
+    except Exception as e:
+        return jsonify({'message': 'Failed to delete grade', 'error': str(e)}), 500

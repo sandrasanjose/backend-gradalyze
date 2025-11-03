@@ -19,14 +19,14 @@ SUBJECT_CODES = [
 
     # BSCS Codes
     'cs_fy1_csc0102', 'cs_fy1_icc0101', 'cs_fy1_icc0101_1', 'cs_fy1_icc0102', 'cs_fy1_icc0102_1',
-    'cs_fy1_ipp0010', 'cs_fy1_mmw0001', 'cs_fy1_ped0001', 'cs_fy1_pcm0006', 'cs_fy1_sts0002', 'cs_fy1_nstp0001',
+    'cs_fy1_ipp0010', 'cs_fy1_mmw0001', 'cs_fy1_ped0001', 'cs_fy1_pcm0006', 'cs_fy1_sts0002', 'cs_fy1_nstp01',
     'cs_fy2_csc0211', 'cs_fy2_csc0223', 'cs_fy2_icc0103', 'cs_fy2_icc0103_1', 'cs_fy2_icc0104',
     'cs_fy2_icc0104_1', 'cs_fy2_lwr0009', 'cs_fy2_ped0012', 'cs_fy2_rph0004', 'cs_fy2_tcw0005', 'cs_fy2_nstp02',
     'cs_sy1_csc0212', 'cs_sy1_csc0212_1', 'cs_sy1_csc0213', 'cs_sy1_csc0213_1', 'cs_sy1_csc0224',
     'cs_sy1_eth0008', 'cs_sy1_icc0105', 'cs_sy1_icc0105_1', 'cs_sy1_ite0001', 'cs_sy1_ped0074', 'cs_sy1_uts0003',
     'cs_sy2_cbm0016', 'cs_sy2_csc0221', 'cs_sy2_csc0222', 'cs_sy2_csc0222_1', 'cs_sy2_csc0316',
     'cs_sy2_ges0013', 'cs_sy2_icc0106', 'cs_sy2_icc0106_1', 'cs_sy2_ped0023', 'cs_sy2_aap0007',
-    'cs_ty1_csc0311', 'cs_ty1_csc0311_1', 'cs_ty1_csc0312', 'cs_ty1_csc0312_1', 'cs_ty1_csc0313',
+    'cs_ty1_csc0311', 'cs_ty1_csc0312', 'cs_ty1_csc0312_1', 'cs_ty1_csc0313',
     'cs_ty1_csc0313_1', 'cs_ty1_csc0314', 'cs_ty1_csc0314_1', 'cs_ty1_csc0315', 'cs_ty1_csc0315_1',
     'cs_ty2_csc0321', 'cs_ty2_csc0321_1', 'cs_ty2_csc0322', 'cs_ty2_csc0322_1', 'cs_ty2_csc0323',
     'cs_ty2_csc0323_1', 'cs_ty2_csc0324', 'cs_ty2_csc0324_1', 'cs_ty2_csc0325', 'cs_ty_csc195_1',

@@ -121,7 +121,7 @@ id_to_axes_cs: Dict[str, List[str]] = {
     'cs_fy1_ped0001': ['S','R'],
     'cs_fy1_pcm0006': ['S','E'],  
     'cs_fy1_sts0002': ['I','S'],
-    'cs_fy1_nstp0001': ['S','E'],
+    'cs_fy1_nstp01': ['S','E'],
 
     # --- BSCS Year 1 / Second Semester ---
     'cs_fy2_csc0211': ['I'],  
@@ -163,7 +163,6 @@ id_to_axes_cs: Dict[str, List[str]] = {
 
     # --- BSCS Year 3 / First Semester ---
     'cs_ty1_csc0311': ['I'],
-    'cs_ty1_csc0311_1': ['I'],
     'cs_ty1_csc0312': ['I','R'],
     'cs_ty1_csc0312_1': ['R','I'],
     'cs_ty1_csc0313': ['I','C','E'],
@@ -200,7 +199,7 @@ id_to_axes_cs: Dict[str, List[str]] = {
     'cs_fy4b_csc0421a': ['I','E'],
     'cs_fy4b_csc0422': ['I','R'],
     'cs_fy4b_csc0422_1': ['R','I'],
-    'cs_fy4b_csc0423': ['S','C'],
+    'cs_fy4b_csc0423': ['S', 'C'],
     'cs_fy4b_csc0424': ['A','I'],
     'cs_fy4b_csc0424_1': ['A','R'],
 }
@@ -286,14 +285,17 @@ def process_archetype_analysis():
                     # Populate columns from computed analysis
                     try:
                         perc = archetype_analysis.get('archetype_percentages', {}) or {}
+                        def getp(k: str):
+                            # accept both lowercase and capitalized keys from analyzer
+                            return perc.get(k) if perc.get(k) is not None else perc.get(k.capitalize())
                         update_data_extra = {
                             'primary_archetype': archetype_analysis.get('primary_archetype'),
-                            'archetype_realistic_percentage': perc.get('realistic'),
-                            'archetype_investigative_percentage': perc.get('investigative'),
-                            'archetype_artistic_percentage': perc.get('artistic'),
-                            'archetype_social_percentage': perc.get('social'),
-                            'archetype_enterprising_percentage': perc.get('enterprising'),
-                            'archetype_conventional_percentage': perc.get('conventional')
+                            'archetype_realistic_percentage': getp('realistic'),
+                            'archetype_investigative_percentage': getp('investigative'),
+                            'archetype_artistic_percentage': getp('artistic'),
+                            'archetype_social_percentage': getp('social'),
+                            'archetype_enterprising_percentage': getp('enterprising'),
+                            'archetype_conventional_percentage': getp('conventional')
                         }
                         # Merge extras where values are not None
                         for k, v in list(update_data_extra.items()):

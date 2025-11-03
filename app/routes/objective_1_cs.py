@@ -195,28 +195,32 @@ def _run_model(grades):
     except Exception as e:
         return ([], []), f'Model inference error: {e}'
 
-TARGET_FEATURE_LEN = 53
+# Default fallback feature length if no hint provided
+TARGET_FEATURE_LEN = 75
 
 def _ensure_model(feature_len_hint: int | None = None):
     """Guarantee a CS model file exists.
     If missing, bootstrap a small CS bundle with default labels.
     """
     try:
-        # Case 1: CS model exists and matches target feature length
+        # Determine desired feature length (prefer runtime hint)
+        desired_len = int(feature_len_hint) if feature_len_hint and feature_len_hint > 0 else TARGET_FEATURE_LEN
+
+        # Case 1: CS model exists and matches desired feature length
         if os.path.exists(MODEL_PATH_CS):
             try:
                 bundle = load(MODEL_PATH_CS)
                 model = bundle.get('model')
                 n_in = getattr(model, 'n_features_in_', None)
-                if n_in == TARGET_FEATURE_LEN:
+                if n_in == desired_len:
                     return
-                # else retrain to target length
+                # else retrain/refresh to desired length
             except Exception:
                 pass
         # Case 2: bootstrap lightweight CS model
         from sklearn.ensemble import RandomForestRegressor
         seed = 42
-        feature_len = TARGET_FEATURE_LEN
+        feature_len = desired_len
         n_samples = max(800, feature_len * 30)
         rng = np.random.default_rng(seed)
         X = rng.uniform(0.0, 4.0, size=(n_samples, feature_len)).astype(float)

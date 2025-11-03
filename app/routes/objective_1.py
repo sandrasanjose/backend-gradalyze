@@ -34,7 +34,7 @@ def bootstrap_model():
     """Create a lightweight decision-tree model and save it to dt_career.joblib.
     Intended for development to unblock Objective 1 when no model exists."""
     try:
-        feature_len = int(request.args.get('feature_len') or 66)
+        feature_len = int(request.args.get('feature_len') or 70)
         n_samples = max(500, feature_len * 20)
 
         rng = np.random.default_rng(42)

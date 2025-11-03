@@ -100,7 +100,7 @@ SUBJECT_MASTER_DICT: Dict[str, Dict[str, Any]] = {
     'cs_fy1_ped0001': {'title': 'Physical Education 1', 'units': 2.0},
     'cs_fy1_pcm0006': {'title': 'Purposive Communication', 'units': 3.0},  
     'cs_fy1_sts0002': {'title': 'Science, Technology and Society', 'units': 3.0},
-    'cs_fy1_nstp0001': {'title': 'National Service Training Program 1', 'units': 3.0},
+    'cs_fy1_nstp01': {'title': 'National Service Training Program 1', 'units': 3.0},
 
     # --- BSCS Year 1 / Second Semester ---
     'cs_fy2_csc0211': {'title': 'Discrete Structures 2', 'units': 3.0},  
@@ -141,8 +141,7 @@ SUBJECT_MASTER_DICT: Dict[str, Dict[str, Any]] = {
     'cs_sy2_aap0007': {'title': 'Art Appreciation', 'units': 3.0},
 
     # --- BSCS Year 3 / First Semester ---
-    'cs_ty1_csc0311': {'title': 'Automata Theory and Formal Languages (Lecture)', 'units': 2.0},
-    'cs_ty1_csc0311_1': {'title': 'Automata Theory and Formal Languages (Laboratory)', 'units': 1.0},
+    'cs_ty1_csc0311': {'title': 'Automata Theory and Formal Languages', 'units': 3.0},
     'cs_ty1_csc0312': {'title': 'Programming Languages (Lecture)', 'units': 2.0},
     'cs_ty1_csc0312_1': {'title': 'Programming Languages (Laboratory)', 'units': 1.0},
     'cs_ty1_csc0313': {'title': 'Software Engineering 1 (Lecture)', 'units': 2.0},
@@ -179,7 +178,7 @@ SUBJECT_MASTER_DICT: Dict[str, Dict[str, Any]] = {
     'cs_fy4b_csc0421a': {'title': 'CS Thesis Writing 2', 'units': 3.0},
     'cs_fy4b_csc0422': {'title': 'Parallel and Distributed Computing (Lecture)', 'units': 2.0},
     'cs_fy4b_csc0422_1': {'title': 'Parallel and Distributed Computing (Laboratory)', 'units': 1.0},
-    'cs_fy4b_csc0423': {'title': 'Social Issues and Professional Practice', 'units': 2.0},
+    'cs_fy4b_csc0423': {'title': 'Social Issues and Professional Practice', 'units': 3.0},
     'cs_fy4b_csc0424': {'title': 'Graphics and Visual Computing (Lecture)', 'units': 2.0},
     'cs_fy4b_csc0424_1': {'title': 'Graphics and Visual Computing (Laboratory)', 'units': 1.0},
 }
