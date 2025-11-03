@@ -272,11 +272,12 @@ def process_archetype_analysis():
         if archetype_analysis:
             try:
                 supabase = get_supabase_client()
-                
-                # Get user by email
-                user_response = supabase.table('users').select('id').eq('email', email).execute()
+
+                # Get user by email (also fetch tor_notes for merge)
+                user_response = supabase.table('users').select('id, tor_notes').eq('email', email).execute()
                 if user_response.data:
-                    user_id = user_response.data[0]['id']
+                    user_row = user_response.data[0]
+                    user_id = user_row['id']
                     
                     # Populate denormalized columns per migration schema (no JSON storage)
                     update_data = {
@@ -304,6 +305,23 @@ def process_archetype_analysis():
                     except Exception:
                         pass
                     
+                    # Merge archetype analysis into tor_notes → analysis_results.archetype_analysis
+                    try:
+                        existing_notes = user_row.get('tor_notes') or '{}'
+                        notes_obj = {}
+                        try:
+                            notes_obj = json.loads(existing_notes) if isinstance(existing_notes, str) else (existing_notes or {})
+                        except Exception:
+                            notes_obj = {}
+
+                        ar = notes_obj.get('analysis_results') or {}
+                        ar['archetype_analysis'] = archetype_analysis
+                        notes_obj['analysis_results'] = ar
+                        update_data['tor_notes'] = json.dumps(notes_obj)
+                    except Exception as _:
+                        # Non-blocking if tor_notes merge fails
+                        pass
+
                     supabase.table('users').update(update_data).eq('id', user_id).execute()
                     print(f"[OBJECTIVE-2] Saved archetype analysis to database for user {user_id}")
                 else:
@@ -492,6 +510,40 @@ def calculate_riasec_archetype(grades, order_ids: List[str] | None = None):
     }
     primary = axis_to_name.get(axes[max_idx], axes[max_idx].lower())
 
+    # --- Fairness normalizations ---
+    # 1) Frequency-normalized: divide each axis total by how often that axis appears in mapping
+    #    to counter curriculum axis frequency imbalance.
+    tag_freq = np.zeros(6, dtype=float)
+    # Rebuild the tag list consistent with the curriculum used above
+    for course_id in curriculum_order[: len(grades)]:
+        tags = id_to_axes.get(course_id, id_to_axes_cs.get(course_id, []))
+        for t in tags:
+            if t in axis_index:
+                tag_freq[axis_index[t]] += 1.0
+
+    def safe_div(a: float, b: float) -> float:
+        return float(a) / float(b) if b and b != 0 else 0.0
+
+    freq_adj = np.array([safe_div(totals[i], tag_freq[i]) for i in range(6)], dtype=float)
+    freq_sum = float(freq_adj.sum())
+    normalized_percentages = ((freq_adj / freq_sum) * 100.0).tolist() if freq_sum > 0 else [0.0] * 6
+
+    # 2) Opportunity-normalized: divide by a maximum attainable weight per axis based on mapping.
+    #    Here we assume max per-course weight is (4.0 - best_grade) = 3.0 and split across tags.
+    MAX_W = 3.0
+    opportunity_den = np.zeros(6, dtype=float)
+    for course_id in curriculum_order[: len(grades)]:
+        tags = id_to_axes.get(course_id, id_to_axes_cs.get(course_id, []))
+        if not tags:
+            continue
+        share = MAX_W / len(tags)
+        for t in tags:
+            if t in axis_index:
+                opportunity_den[axis_index[t]] += share
+    opp_adj = np.array([safe_div(totals[i], opportunity_den[i]) for i in range(6)], dtype=float)
+    opp_sum = float(opp_adj.sum())
+    opportunity_normalized_percentages = ((opp_adj / opp_sum) * 100.0).tolist() if opp_sum > 0 else [0.0] * 6
+
     return {
         'primary_archetype': primary,
         'archetype_percentages': {
@@ -501,6 +553,22 @@ def calculate_riasec_archetype(grades, order_ids: List[str] | None = None):
             'Social': round(float(percentages[axis_index['S']]), 2),
             'Enterprising': round(float(percentages[axis_index['E']]), 2),
             'Conventional': round(float(percentages[axis_index['C']]), 2)
+        },
+        'normalized_percentages': {
+            'Realistic': round(float(normalized_percentages[axis_index['R']]), 2),
+            'Investigative': round(float(normalized_percentages[axis_index['I']]), 2),
+            'Artistic': round(float(normalized_percentages[axis_index['A']]), 2),
+            'Social': round(float(normalized_percentages[axis_index['S']]), 2),
+            'Enterprising': round(float(normalized_percentages[axis_index['E']]), 2),
+            'Conventional': round(float(normalized_percentages[axis_index['C']]), 2)
+        },
+        'opportunity_normalized_percentages': {
+            'Realistic': round(float(opportunity_normalized_percentages[axis_index['R']]), 2),
+            'Investigative': round(float(opportunity_normalized_percentages[axis_index['I']]), 2),
+            'Artistic': round(float(opportunity_normalized_percentages[axis_index['A']]), 2),
+            'Social': round(float(opportunity_normalized_percentages[axis_index['S']]), 2),
+            'Enterprising': round(float(opportunity_normalized_percentages[axis_index['E']]), 2),
+            'Conventional': round(float(opportunity_normalized_percentages[axis_index['C']]), 2)
         },
         'archetype_scores': {
             'Realistic': round(float(scores[axis_index['R']]), 3),
