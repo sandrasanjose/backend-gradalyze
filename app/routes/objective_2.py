@@ -266,7 +266,23 @@ def process_archetype_analysis():
         print(f"[OBJECTIVE-2] Processing {len(grades)} grade values: {grades}")
         
         # RIASEC archetype analysis based on academic performance
-        archetype_analysis = calculate_riasec_archetype(grades, order_ids)
+        gamma = None
+        r = None
+        tau = None
+        similarity = None
+        try:
+            gv = data.get('gamma')
+            rv = data.get('r')
+            tv = data.get('tau')
+            sv = data.get('similarity')
+            gamma = float(gv) if gv is not None else None
+            r = float(rv) if rv is not None else None
+            tau = float(tv) if tv is not None else 0.9
+            similarity = str(sv).lower() if isinstance(sv, str) else 'cosine'
+        except Exception:
+            pass
+
+        archetype_analysis = calculate_riasec_archetype(grades, order_ids, gamma=gamma, r=r, tau=tau, similarity=similarity)
         
         # Save to database
         if archetype_analysis:
@@ -285,12 +301,18 @@ def process_archetype_analysis():
                     }
                     # Populate columns from computed analysis
                     try:
-                        perc = archetype_analysis.get('archetype_percentages', {}) or {}
+                        perc = (
+                            archetype_analysis.get('debias_percentages')
+                            or archetype_analysis.get('opportunity_normalized_percentages')
+                            or archetype_analysis.get('normalized_percentages')
+                            or archetype_analysis.get('archetype_percentages')
+                            or {}
+                        )
                         def getp(k: str):
                             # accept both lowercase and capitalized keys from analyzer
                             return perc.get(k) if perc.get(k) is not None else perc.get(k.capitalize())
                         update_data_extra = {
-                            'primary_archetype': archetype_analysis.get('primary_archetype'),
+                            'primary_archetype': archetype_analysis.get('primary_archetype_debiased') or archetype_analysis.get('primary_archetype'),
                             'archetype_realistic_percentage': getp('realistic'),
                             'archetype_investigative_percentage': getp('investigative'),
                             'archetype_artistic_percentage': getp('artistic'),
@@ -401,7 +423,7 @@ def clear_archetype_results():
         print(f"[OBJECTIVE-2] Error: {e}")
         return jsonify({'message': 'Failed to clear archetype results', 'error': str(e)}), 500
 
-def calculate_riasec_archetype(grades, order_ids: List[str] | None = None):
+def calculate_riasec_archetype(grades, order_ids: List[str] | None = None, *, gamma: float | None = None, r: float | None = None, tau: float | None = None, similarity: str | None = None):
     """
     RIASEC via KMeans-style clustering using BSIT course-to-RIASEC mapping.
     - Input: fixed-order numeric grades array aligned with ITStaticTable.
@@ -477,19 +499,77 @@ def calculate_riasec_archetype(grades, order_ids: List[str] | None = None):
         # Assign step
         distances = np.linalg.norm(X[:, None, :] - centroids[None, :, :], axis=2)
         labels = np.argmin(distances, axis=1)
-        # Update step
         for k in range(6):
             mask = labels == k
             if np.any(mask):
                 centroids[k] = X[mask].mean(axis=0)
 
-    # Aggregate total weight per cluster (axis)
-    totals = np.zeros(6, dtype=float)
+    # Soft aggregation across clusters with selectable similarity and temperature
+    eps = 1e-9
+    _tau = float(tau) if (tau is not None and math.isfinite(float(tau)) and float(tau) > 0) else 0.9
+    _sim = (similarity or 'cosine').lower()
+    if _sim == 'cosine':
+        # cosine similarity between each X[i] and centroid[k]
+        Xn = X / (np.linalg.norm(X, axis=1, keepdims=True) + eps)
+        Cn = centroids / (np.linalg.norm(centroids, axis=1, keepdims=True) + eps)
+        sims = Xn @ Cn.T  # [-1,1]
+        # optional: clamp negatives to reduce cross-axis leakage
+        sims = np.maximum(sims, 0.0)
+        # temperature-scaled softmax
+        sims_scaled = sims / _tau
+        sims_scaled = sims_scaled - sims_scaled.max(axis=1, keepdims=True)
+        expv = np.exp(sims_scaled)
+        weights_soft = expv / (expv.sum(axis=1, keepdims=True) + eps)
+    else:
+        # euclidean distance converted to similarity
+        distances = np.linalg.norm(X[:, None, :] - centroids[None, :, :], axis=2)
+        sims = -distances  # larger (less negative) is closer
+        sims_scaled = sims / _tau
+        sims_scaled = sims_scaled - sims_scaled.max(axis=1, keepdims=True)
+        expv = np.exp(sims_scaled)
+        weights_soft = expv / (expv.sum(axis=1, keepdims=True) + eps)
+
+    # Compute direct axis sums (no clustering)
+    direct_totals = X.sum(axis=0)
+    direct_contribs: List[List[float]] = [[] for _ in range(6)]
     for vec in X:
-        # Assign to nearest final centroid
-        d = np.linalg.norm(vec[None, :] - centroids, axis=1)
-        k = int(np.argmin(d))
-        totals[k] += vec.sum()
+        for k in range(6):
+            v = float(vec[k])
+            if v > 0:
+                direct_contribs[k].append(v)
+
+    # Compute soft K-Means totals
+    soft_totals = np.zeros(6, dtype=float)
+    soft_contribs: List[List[float]] = [[] for _ in range(6)]
+    per_row_max = []
+    for i, vec in enumerate(X):
+        c = float(vec.sum())
+        if c <= 0:
+            continue
+        row_weights = weights_soft[i, :]
+        per_row_max.append(float(row_weights.max()))
+        for k in range(6):
+            share = float(row_weights[k]) * c
+            if share > 0:
+                soft_totals[k] += share
+                soft_contribs[k].append(share)
+
+    # Ambiguity-aware blend factor based on clustering confidence
+    conf = float(np.mean(per_row_max)) if per_row_max else 1.0
+    alpha = min(0.95, max(0.5, conf))
+
+    # Blended totals and contributions
+    totals = alpha * soft_totals + (1.0 - alpha) * direct_totals
+    assigned_contribs: List[List[float]] = [[] for _ in range(6)]
+    for k in range(6):
+        # Blend lists by proportional scaling to match blended totals
+        # Concatenate to preserve distribution variety
+        blended = []
+        if soft_contribs[k]:
+            blended.extend([alpha * v for v in soft_contribs[k]])
+        if direct_contribs[k]:
+            blended.extend([(1.0 - alpha) * v for v in direct_contribs[k]])
+        assigned_contribs[k] = blended
 
     total_sum = float(totals.sum())
     if total_sum <= 0:
@@ -544,8 +624,43 @@ def calculate_riasec_archetype(grades, order_ids: List[str] | None = None):
     opp_sum = float(opp_adj.sum())
     opportunity_normalized_percentages = ((opp_adj / opp_sum) * 100.0).tolist() if opp_sum > 0 else [0.0] * 6
 
+    global_tag_freq = np.zeros(6, dtype=float)
+    for course_id in curriculum_order:
+        tags = id_to_axes.get(course_id, id_to_axes_cs.get(course_id, []))
+        for t in tags:
+            if t in axis_index:
+                global_tag_freq[axis_index[t]] += 1.0
+
+    def safe_idf(freq_val: float, gamma: float = 0.7) -> float:
+        try:
+            return 1.0 / (math.log(1.0 + float(freq_val)) ** gamma) if float(freq_val) > 0 else 1.0
+        except Exception:
+            return 1.0
+
+    idf_gamma = float(gamma) if (gamma is not None and math.isfinite(float(gamma)) and float(gamma) > 0) else 0.7
+    idf_weights = np.array([safe_idf(global_tag_freq[i], idf_gamma) for i in range(6)], dtype=float)
+
+    r = float(r) if (r is not None and math.isfinite(float(r)) and 0.0 < float(r) < 1.0) else 0.75
+    debias_totals = np.zeros(6, dtype=float)
+    for i in range(6):
+        if not assigned_contribs[i]:
+            continue
+        contribs = [c * idf_weights[i] for c in assigned_contribs[i]]
+        contribs.sort(reverse=True)
+        adj = 0.0
+        for idx_c, c in enumerate(contribs):
+            adj += (r ** idx_c) * c
+        debias_totals[i] = adj
+
+    debias_sum = float(debias_totals.sum())
+    debias_percentages = ((debias_totals / debias_sum) * 100.0).tolist() if debias_sum > 0 else [0.0] * 6
+    debias_scores = debias_totals.tolist()
+    debias_max_idx = int(np.argmax(debias_percentages)) if debias_sum > 0 else max_idx
+    primary_debiased = axis_to_name.get(axes[debias_max_idx], axes[debias_max_idx].lower())
+
     return {
         'primary_archetype': primary,
+        'primary_archetype_debiased': primary_debiased,
         'archetype_percentages': {
             'Realistic': round(float(percentages[axis_index['R']]), 2),
             'Investigative': round(float(percentages[axis_index['I']]), 2),
@@ -577,5 +692,21 @@ def calculate_riasec_archetype(grades, order_ids: List[str] | None = None):
             'Social': round(float(scores[axis_index['S']]), 3),
             'Enterprising': round(float(scores[axis_index['E']]), 3),
             'Conventional': round(float(scores[axis_index['C']]), 3)
+        },
+        'debias_percentages': {
+            'Realistic': round(float(debias_percentages[axis_index['R']]), 2),
+            'Investigative': round(float(debias_percentages[axis_index['I']]), 2),
+            'Artistic': round(float(debias_percentages[axis_index['A']]), 2),
+            'Social': round(float(debias_percentages[axis_index['S']]), 2),
+            'Enterprising': round(float(debias_percentages[axis_index['E']]), 2),
+            'Conventional': round(float(debias_percentages[axis_index['C']]), 2)
+        },
+        'debias_scores': {
+            'Realistic': round(float(debias_scores[axis_index['R']]), 3),
+            'Investigative': round(float(debias_scores[axis_index['I']]), 3),
+            'Artistic': round(float(debias_scores[axis_index['A']]), 3),
+            'Social': round(float(debias_scores[axis_index['S']]), 3),
+            'Enterprising': round(float(debias_scores[axis_index['E']]), 3),
+            'Conventional': round(float(debias_scores[axis_index['C']]), 3)
         }
     }

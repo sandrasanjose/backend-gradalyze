@@ -97,7 +97,7 @@ SUBJECT_MASTER_DICT: Dict[str, Dict[str, Any]] = {
     'cs_fy1_icc0102_1': {'title': 'Fundamentals of Programming (Laboratory)', 'units': 1.0},
     'cs_fy1_ipp0010': {'title': 'Interdisiplinaryong Pagbasa at Pagsulat Tungo sa Mabisang Pagpapahayag', 'units': 3.0},
     'cs_fy1_mmw0001': {'title': 'Mathematics in the Modern World', 'units': 3.0},
-    'cs_fy1_ped0001': {'title': 'Physical Education 1', 'units': 2.0},
+    'cs_fy1_ped0001': {'title': 'Foundation of Physical Activities', 'units': 2.0},
     'cs_fy1_pcm0006': {'title': 'Purposive Communication', 'units': 3.0},  
     'cs_fy1_sts0002': {'title': 'Science, Technology and Society', 'units': 3.0},
     'cs_fy1_nstp01': {'title': 'National Service Training Program 1', 'units': 3.0},
@@ -120,7 +120,7 @@ SUBJECT_MASTER_DICT: Dict[str, Dict[str, Any]] = {
     'cs_sy1_csc0212_1': {'title': 'Object Oriented Programming (Laboratory)', 'units': 1.0},
     'cs_sy1_csc0213': {'title': 'Logic Design and Digital Computer Circuits (Lecture)', 'units': 2.0},
     'cs_sy1_csc0213_1': {'title': 'Logic Design and Digital Computer Circuits (Laboratory)', 'units': 1.0},
-    'cs_sy1_csc0224': {'title': 'Operations Research', 'units': 3.0},
+    'cs_sy1_csc0224': {'title': 'Operation Research', 'units': 3.0},
     'cs_sy1_eth0008': {'title': 'Ethics', 'units': 3.0},
     'cs_sy1_icc0105': {'title': 'Information Management (Lecture)', 'units': 2.0},
     'cs_sy1_icc0105_1': {'title': 'Information Management (Laboratory)', 'units': 1.0},
@@ -144,12 +144,12 @@ SUBJECT_MASTER_DICT: Dict[str, Dict[str, Any]] = {
     'cs_ty1_csc0311': {'title': 'Automata Theory and Formal Languages', 'units': 3.0},
     'cs_ty1_csc0312': {'title': 'Programming Languages (Lecture)', 'units': 2.0},
     'cs_ty1_csc0312_1': {'title': 'Programming Languages (Laboratory)', 'units': 1.0},
-    'cs_ty1_csc0313': {'title': 'Software Engineering 1 (Lecture)', 'units': 2.0},
-    'cs_ty1_csc0313_1': {'title': 'Software Engineering 1 (Laboratory)', 'units': 1.0},
-    'cs_ty1_csc0314': {'title': 'Operating Systems (Lecture)', 'units': 2.0},
-    'cs_ty1_csc0314_1': {'title': 'Operating Systems (Laboratory)', 'units': 1.0},
-    'cs_ty1_csc0315': {'title': 'Intelligent Systems (Lecture)', 'units': 2.0},
-    'cs_ty1_csc0315_1': {'title': 'Intelligent Systems (Laboratory)', 'units': 1.0},
+    'cs_ty1_csc0313': {'title': 'Software Engineering (Lecture)', 'units': 2.0},
+    'cs_ty1_csc0313_1': {'title': 'Software Engineering (Laboratory)', 'units': 1.0},
+    'cs_ty1_csc0314': {'title': 'Operating System (Lecture)', 'units': 2.0},
+    'cs_ty1_csc0314_1': {'title': 'Operating System (Laboratory)', 'units': 1.0},
+    'cs_ty1_csc0315': {'title': 'Intelligent System (Lecture)', 'units': 2.0},
+    'cs_ty1_csc0315_1': {'title': 'Intelligent System (Laboratory)', 'units': 1.0},
 
     # --- BSCS Year 3 / Second Semester ---
     'cs_ty2_csc0321': {'title': 'Software Engineering 2 (Lecture)', 'units': 2.0},
@@ -167,8 +167,8 @@ SUBJECT_MASTER_DICT: Dict[str, Dict[str, Any]] = {
 
     # --- BSCS Year 4 / First Semester ---
     'cs_fy4_csc0411': {'title': 'CS Thesis Writing 1', 'units': 3.0},
-    'cs_fy4_csc0412': {'title': 'Networks and Communications (Lecture)', 'units': 2.0},
-    'cs_fy4_csc0412_1': {'title': 'Networks and Communications (Laboratory)', 'units': 1.0},
+    'cs_fy4_csc0412': {'title': 'Networks and Communication (Lecture)', 'units': 2.0},
+    'cs_fy4_csc0412_1': {'title': 'Networks and Communication (Laboratory)', 'units': 1.0},
     'cs_fy4_csc0413': {'title': 'CS Elective 2 (Lecture)', 'units': 2.0},
     'cs_fy4_csc0413_1': {'title': 'CS Elective 2 (Laboratory)', 'units': 1.0},
     'cs_fy4_csc0414': {'title': 'CS Elective 3 (Lecture)', 'units': 2.0},
@@ -176,7 +176,7 @@ SUBJECT_MASTER_DICT: Dict[str, Dict[str, Any]] = {
 
     # --- BSCS Year 4 / Second Semester ---
     'cs_fy4b_csc0421a': {'title': 'CS Thesis Writing 2', 'units': 3.0},
-    'cs_fy4b_csc0422': {'title': 'Parallel and Distributed Computing (Lecture)', 'units': 2.0},
+    'cs_fy4b_csc0422': {'title': 'Parallel and Distributing Computing (Lecture)', 'units': 2.0},
     'cs_fy4b_csc0422_1': {'title': 'Parallel and Distributed Computing (Laboratory)', 'units': 1.0},
     'cs_fy4b_csc0423': {'title': 'Social Issues and Professional Practice', 'units': 3.0},
     'cs_fy4b_csc0424': {'title': 'Graphics and Visual Computing (Lecture)', 'units': 2.0},

@@ -150,7 +150,22 @@ def extract_grades_from_tor(file_bytes: bytes, filename: str) -> Dict[str, Any]:
     if raw_ocr_results and gemini_model:
         gemini_results = refine_with_gemini_layout_aware(raw_ocr_results)
         if gemini_results.get('grades'):
-            return {**gemini_results, 'full_text': full_text}
+            final_grades = gemini_results['grades']
+            it_course_ids = [grade['subject'] for grade in final_grades if grade['subject'] in IT_SUBJECT_CODES]
+            cs_course_ids = [grade['subject'] for grade in final_grades if grade['subject'] in CS_SUBJECT_CODES]
+            all_course_ids = it_course_ids + cs_course_ids
+            return {
+                'grade_values': [g['grade'] for g in final_grades],
+                'grades': final_grades,
+                'subject_pairs': [g['subject'] for g in final_grades],
+                'full_text': full_text,
+                'metadata': [{
+                    'id': course_id,
+                    'title': SUBJECT_MASTER_DICT[course_id]['title'],
+                    'units': SUBJECT_MASTER_DICT[course_id]['units'],
+                    'description': SUBJECT_MASTER_DICT[course_id]['description']
+                } for course_id in all_course_ids]
+            }
 
     print("[OCR_TOR] Gemini failed or was not used. Falling back to simple regex method.")
     grades, grade_values, subject_pairs = [], [], []

@@ -22,6 +22,14 @@ def process_job_recommendations():
         email = (data.get('email') or '').strip().lower()
         refresh = bool(data.get('refresh'))
         debug_requested = bool(data.get('debug'))
+        align_with_archetype = True if data.get('align_with_archetype') is None else bool(data.get('align_with_archetype'))
+        lambda_blend = data.get('lambda')
+        try:
+            lambda_blend = float(lambda_blend)
+        except Exception:
+            lambda_blend = None
+        if not (isinstance(lambda_blend, float) and 0.0 <= lambda_blend <= 1.0):
+            lambda_blend = 0.75
         
         print(f"[OBJECTIVE-3] Job recommendations processing for email: {email}")
         
@@ -83,6 +91,76 @@ def process_job_recommendations():
         except Exception as db_error:
             print(f"[OBJECTIVE-3] Database fetch error: {db_error}")
         
+        # Optional: re-rank career forecast by cosine similarity to student's RIASEC
+        debug_fit = None
+        try:
+            if align_with_archetype and isinstance(career_forecast, dict) and career_forecast:
+                # Build student vector from archetype columns (already debiased-preferred upstream)
+                def _nz(v):
+                    try:
+                        f = float(v)
+                        return f if f > 0 else 0.0
+                    except Exception:
+                        return 0.0
+                stu_vec = [
+                    _nz(archetype_analysis.get('archetype_realistic_percentage')),
+                    _nz(archetype_analysis.get('archetype_investigative_percentage')),
+                    _nz(archetype_analysis.get('archetype_artistic_percentage')),
+                    _nz(archetype_analysis.get('archetype_social_percentage')),
+                    _nz(archetype_analysis.get('archetype_enterprising_percentage')),
+                    _nz(archetype_analysis.get('archetype_conventional_percentage')),
+                ]
+                import math
+                import numpy as np
+                sv = np.array(stu_vec, dtype=float)
+                sv_norm = np.linalg.norm(sv)
+                if sv_norm > 0:
+                    sv = sv / sv_norm
+                    # Minimal career->RIASEC map (extend as needed)
+                    CAREER_RIASEC = {
+                        'iot engineer':       {'R':0.25,'I':0.35,'A':0.05,'S':0.05,'E':0.20,'C':0.10},
+                        'data analyst':       {'R':0.05,'I':0.45,'A':0.05,'S':0.10,'E':0.10,'C':0.25},
+                        'software engineer':  {'R':0.15,'I':0.35,'A':0.10,'S':0.10,'E':0.15,'C':0.15},
+                        'project manager':    {'R':0.05,'I':0.15,'A':0.05,'S':0.25,'E':0.35,'C':0.15},
+                        'ui/ux designer':     {'R':0.05,'I':0.10,'A':0.55,'S':0.15,'E':0.10,'C':0.05},
+                        'systems analyst':    {'R':0.10,'I':0.35,'A':0.05,'S':0.15,'E':0.10,'C':0.25},
+                        'database admin':     {'R':0.05,'I':0.25,'A':0.05,'S':0.10,'E':0.10,'C':0.45},
+                        'network engineer':   {'R':0.25,'I':0.35,'A':0.05,'S':0.10,'E':0.15,'C':0.10},
+                        'business analyst':   {'R':0.05,'I':0.25,'A':0.05,'S':0.25,'E':0.25,'C':0.15},
+                    }
+                    axis_ord = ['R','I','A','S','E','C']
+                    def career_vec(label: str):
+                        m = CAREER_RIASEC.get(label.lower())
+                        if not m:
+                            return None
+                        arr = np.array([float(m.get(a,0.0)) for a in axis_ord], dtype=float)
+                        n = np.linalg.norm(arr)
+                        return arr / n if n>0 else None
+                    before = dict(career_forecast)
+                    after = {}
+                    for label, score in before.items():
+                        cv = career_vec(str(label))
+                        if cv is None:
+                            # keep original if no mapping
+                            after[label] = float(score)
+                            continue
+                        cos = float(np.clip(np.dot(sv, cv), 0.0, 1.0))
+                        s = float(score)
+                        final = float(lambda_blend * s + (1.0 - lambda_blend) * cos)
+                        after[label] = final
+                    # Reorder top 6
+                    sorted_after = dict(sorted(after.items(), key=lambda kv: kv[1], reverse=True))
+                    career_forecast = sorted_after
+                    if debug_requested:
+                        debug_fit = {
+                            'lambda': lambda_blend,
+                            'align': True,
+                            'before': before,
+                            'after': sorted_after,
+                        }
+        except Exception as _:
+            pass
+
         # Company recommendations based on career forecast and archetype
         result = generate_job_recommendations(career_forecast, archetype_analysis, debug=debug_requested)
         company_list = []
@@ -116,8 +194,11 @@ def process_job_recommendations():
             'email': email,
             'job_recommendations': job_recommendations
         }
-        if debug_requested and debug_info:
-            response_payload['debug'] = debug_info
+        if debug_requested:
+            if debug_info:
+                response_payload['debug'] = debug_info
+            if debug_fit:
+                response_payload.setdefault('debug', {})['archetype_fit'] = debug_fit
         return jsonify(response_payload), 200
         
     except Exception as e:
