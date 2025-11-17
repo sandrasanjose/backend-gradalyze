@@ -85,7 +85,7 @@ def register():
         supabase = get_supabase_client()
 
         # Prevent duplicate accounts by email
-        existing = supabase.table('users').select('id').eq('email', record['email']).limit(1).execute()
+        existing = supabase.table('users').select('user_id').eq('email', record['email']).limit(1).execute()
         if existing.data:
             return jsonify({'message': 'Email already registered'}), 409
 
@@ -141,21 +141,21 @@ def login():
         secret = current_app.config.get('SECRET_KEY', 'dev-secret-key-change-in-production')
         token_payload = {
             'email': db_user.get('email'),
-            'user_id': db_user.get('id'),
+            'user_id': db_user.get('user_id'),
             'exp': datetime.datetime.utcnow() + datetime.timedelta(hours=24)  # 24 hour expiry
         }
         token = jwt.encode(token_payload, secret, algorithm='HS256')
 
         # Shape user payload without password_hash
         safe_user = {
-            'id': db_user.get('id'),
+            'user_id': db_user.get('user_id'),
             'email': db_user.get('email'),
             'name': f"{db_user.get('first_name','')} {db_user.get('last_name','')}".strip(),
             'course': db_user.get('course'),
             'student_number': db_user.get('student_number'),
         }
 
-        current_app.logger.info('Login successful for %s (id=%s)', email, safe_user.get('id'))
+        current_app.logger.info('Login successful for %s (user_id=%s)', email, safe_user.get('user_id'))
         return jsonify({
             'message': 'Login successful', 
             'user': safe_user,
@@ -173,13 +173,13 @@ def get_profile(current_user):
     try:
         supabase = get_supabase_client()
         res = supabase.table('users').select(
-            'id, email, first_name, last_name, course, student_number, created_at'
+            'user_id, email, first_name, last_name, course, student_number, created_at'
         ).eq('email', current_user).limit(1).execute()
         if not res.data:
             return jsonify({'message': 'User not found'}), 404
         row = res.data[0]
         return jsonify({
-            'id': row.get('id'),
+            'user_id': row.get('user_id'),
             'email': row.get('email'),
             'name': f"{row.get('first_name','')} {row.get('last_name','')}".strip(),
             'course': row.get('course'),
@@ -208,7 +208,7 @@ def profile_by_email():
             return jsonify({'message': 'User not found'}), 404
         row = res.data[0]
         return jsonify({
-            'id': row.get('id'),
+            'user_id': row.get('user_id'),
             'email': row.get('email'),
             'name': f"{row.get('first_name','')} {row.get('last_name','')}".strip(),
             'course': row.get('course'),

@@ -213,7 +213,7 @@ def process_tor_endpoint():
 def get_user_grades(user_id: int):
     try:
         supabase = get_supabase_client()
-        resp = supabase.table('users').select('grades').eq('id', user_id).limit(1).execute()
+        resp = supabase.table('users').select('grades').eq('user_id', user_id).limit(1).execute()
         if not resp.data:
             return jsonify({'message': 'User not found'}), 404
         grades = resp.data[0].get('grades') or []
@@ -227,7 +227,7 @@ def update_user_grades(user_id: int):
         payload = request.get_json(silent=True) or {}
         grades = payload.get('grades') or []
         supabase = get_supabase_client()
-        upd = supabase.table('users').update({'grades': grades}).eq('id', user_id).execute()
+        upd = supabase.table('users').update({'grades': grades}).eq('user_id', user_id).execute()
         saved = (upd.data[0].get('grades') if upd.data else grades) or grades
         return jsonify({'message': 'updated', 'grades': saved}), 200
     except Exception as e:
@@ -241,12 +241,12 @@ def add_user_grade(user_id: int):
         if grade is None:
             return jsonify({'message': 'grade is required'}), 400
         supabase = get_supabase_client()
-        resp = supabase.table('users').select('grades').eq('id', user_id).limit(1).execute()
+        resp = supabase.table('users').select('grades').eq('user_id', user_id).limit(1).execute()
         if not resp.data:
             return jsonify({'message': 'User not found'}), 404
         grades = resp.data[0].get('grades') or []
         grades.append(grade)
-        upd = supabase.table('users').update({'grades': grades}).eq('id', user_id).execute()
+        upd = supabase.table('users').update({'grades': grades}).eq('user_id', user_id).execute()
         saved = (upd.data[0].get('grades') if upd.data else grades) or grades
         return jsonify({'message': 'added', 'grades': saved}), 200
     except Exception as e:
@@ -260,12 +260,12 @@ def delete_user_grade(user_id: int):
         if not grade_id:
             return jsonify({'message': 'grade_id is required'}), 400
         supabase = get_supabase_client()
-        resp = supabase.table('users').select('grades').eq('id', user_id).limit(1).execute()
+        resp = supabase.table('users').select('grades').eq('user_id', user_id).limit(1).execute()
         if not resp.data:
             return jsonify({'message': 'User not found'}), 404
         grades = resp.data[0].get('grades') or []
         new_grades = [g for g in grades if (g or {}).get('id') != grade_id]
-        upd = supabase.table('users').update({'grades': new_grades}).eq('id', user_id).execute()
+        upd = supabase.table('users').update({'grades': new_grades}).eq('user_id', user_id).execute()
         saved = (upd.data[0].get('grades') if upd.data else new_grades) or new_grades
         return jsonify({'message': 'deleted', 'grades': saved}), 200
     except Exception as e:

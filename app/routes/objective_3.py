@@ -42,7 +42,7 @@ def process_job_recommendations():
             
             # Get user data using current schema (denormalized columns)
             select_cols = (
-                'id, job_recommendations, career_top_jobs, career_top_jobs_scores, '
+                'user_id, job_recommendations, career_top_jobs, career_top_jobs_scores, '
                 'primary_archetype, '
                 'archetype_realistic_percentage, archetype_investigative_percentage, '
                 'archetype_artistic_percentage, archetype_social_percentage, '
@@ -175,14 +175,14 @@ def process_job_recommendations():
         try:
             supabase = get_supabase_client()
             # Get user by email
-            user_response = supabase.table('users').select('id').eq('email', email).execute()
+            user_response = supabase.table('users').select('user_id').eq('email', email).execute()
             if user_response.data:
-                user_id = user_response.data[0]['id']
+                user_id = user_response.data[0]['user_id']
                 # Persist results; avoid non-existent columns for compatibility
                 update_data = {
                     'job_recommendations': json.dumps(job_recommendations)
                 }
-                supabase.table('users').update(update_data).eq('id', user_id).execute()
+                supabase.table('users').update(update_data).eq('user_id', user_id).execute()
                 print(f"[OBJECTIVE-3] Saved job recommendations to database for user {user_id}")
             else:
                 print(f"[OBJECTIVE-3] User not found for email: {email}")
@@ -241,16 +241,16 @@ def clear_job_results():
         try:
             supabase = get_supabase_client()
             # Find user id
-            user_resp = supabase.table('users').select('id').eq('email', email).limit(1).execute()
+            user_resp = supabase.table('users').select('user_id').eq('email', email).limit(1).execute()
             if not user_resp.data:
                 return jsonify({'message': 'User not found'}), 404
-            user_id = user_resp.data[0]['id']
+            user_id = user_resp.data[0]['user_id']
 
             # Clear job_recommendations jsonb field
             update_data = {
                 'job_recommendations': None
             }
-            supabase.table('users').update(update_data).eq('id', user_id).execute()
+            supabase.table('users').update(update_data).eq('user_id', user_id).execute()
             return jsonify({'message': 'Job results cleared (Objective 3)'}), 200
         except Exception as db_error:
             print(f"[OBJECTIVE-3] Clear DB error: {db_error}")

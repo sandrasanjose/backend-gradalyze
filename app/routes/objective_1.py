@@ -119,9 +119,9 @@ def process_career_forecast():
                 supabase = get_supabase_client()
                 
                 # Get user by email
-                user_response = supabase.table('users').select('id').eq('email', email).execute()
+                user_response = supabase.table('users').select('user_id').eq('email', email).execute()
                 if user_response.data:
-                    user_id = user_response.data[0]['id']
+                    user_id = user_response.data[0]['user_id']
                     
                     # Save as array of top jobs (ordered)
                     update_data = {
@@ -130,7 +130,7 @@ def process_career_forecast():
                         'career_top_jobs_scores': career_probs
                     }
                     
-                    supabase.table('users').update(update_data).eq('id', user_id).execute()
+                    supabase.table('users').update(update_data).eq('user_id', user_id).execute()
                     print(f"[OBJECTIVE-1] Saved career forecast to database for user {user_id}")
                 else:
                     print(f"[OBJECTIVE-1] User not found for email: {email}")
@@ -194,10 +194,10 @@ def clear_career_results():
         try:
             supabase = get_supabase_client()
             # Find user id
-            user_resp = supabase.table('users').select('id').eq('email', email).limit(1).execute()
+            user_resp = supabase.table('users').select('user_id').eq('email', email).limit(1).execute()
             if not user_resp.data:
                 return jsonify({'message': 'User not found'}), 404
-            user_id = user_resp.data[0]['id']
+            user_id = user_resp.data[0]['user_id']
 
             # Null out/clear denormalized forecast columns
             update_data = {
@@ -205,7 +205,7 @@ def clear_career_results():
                 'career_top_jobs': [],
                 'career_top_jobs_scores': [],
             }
-            supabase.table('users').update(update_data).eq('id', user_id).execute()
+            supabase.table('users').update(update_data).eq('user_id', user_id).execute()
             return jsonify({'message': 'Career results cleared (Objective 1)'}), 200
         except Exception as db_error:
             print(f"[OBJECTIVE-1] Clear DB error: {db_error}")

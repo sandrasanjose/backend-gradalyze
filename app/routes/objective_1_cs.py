@@ -44,14 +44,14 @@ def process_career_forecast_cs():
         # Persist denormalized result
         try:
             supabase = get_supabase_client()
-            user_resp = supabase.table('users').select('id').eq('email', email).limit(1).execute()
+            user_resp = supabase.table('users').select('user_id').eq('email', email).limit(1).execute()
             if user_resp.data:
-                user_id = user_resp.data[0]['id']
+                user_id = user_resp.data[0]['user_id']
                 supabase.table('users').update({
                     'career_forecast_analyzed_at': datetime.now(timezone.utc).isoformat(),
                     'career_top_jobs': career_labels,
                     'career_top_jobs_scores': career_probs
-                }).eq('id', user_id).execute()
+                }).eq('user_id', user_id).execute()
         except Exception:
             pass
 
@@ -73,15 +73,15 @@ def clear_career_results_cs():
         if not email:
             return jsonify({'message': 'email is required'}), 400
         supabase = get_supabase_client()
-        user_resp = supabase.table('users').select('id').eq('email', email).limit(1).execute()
+        user_resp = supabase.table('users').select('user_id').eq('email', email).limit(1).execute()
         if not user_resp.data:
             return jsonify({'message': 'User not found'}), 404
-        user_id = user_resp.data[0]['id']
+        user_id = user_resp.data[0]['user_id']
         supabase.table('users').update({
             'career_forecast_analyzed_at': None,
             'career_top_jobs': [],
             'career_top_jobs_scores': [],
-        }).eq('id', user_id).execute()
+        }).eq('user_id', user_id).execute()
         return jsonify({'message': 'Career results cleared (Objective 1 - CS)'}), 200
     except Exception as e:
         return jsonify({'message': 'Failed to clear career results', 'error': str(e)}), 500

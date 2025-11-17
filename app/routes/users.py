@@ -129,14 +129,14 @@ def upload_tor_v2():
             public_url = str(public_url_resp)
 
         # Save to users table
-        user = supabase.table('users').select('id').eq('email', email).execute()
+        user = supabase.table('users').select('id:user_id').eq('email', email).execute()
         if not user.data:
             return jsonify({'message': 'User not found'}), 404
         supabase.table('users').update({
             'tor_storage_path': storage_path,
             'tor_url': public_url,
             'tor_uploaded_at': supabase.rpc if False else None
-        }).eq('id', user.data[0]['id']).execute()
+        }).eq('user_id', user.data[0]['user_id']).execute()
 
         return jsonify({'message': 'uploaded', 'storage_path': storage_path, 'url': public_url}), 200
     except Exception as error:
@@ -159,7 +159,7 @@ def delete_tor():
 
         supabase = get_supabase_client()
         # Fetch user and current tor path
-        user_resp = supabase.table('users').select('id, tor_storage_path').eq('email', email).limit(1).execute()
+        user_resp = supabase.table('users').select('user_id, tor_storage_path').eq('email', email).limit(1).execute()
         if not user_resp.data:
             return jsonify({'message': 'User not found'}), 404
         user_row = user_resp.data[0]
@@ -182,7 +182,7 @@ def delete_tor():
             'tor_storage_path': None,
             'tor_url': None,
             'tor_uploaded_at': None
-        }).eq('id', user_row['id']).execute()
+        }).eq('user_id', user_row['user_id']).execute()
 
         return jsonify({'message': 'deleted'}), 200
     except Exception as error:
@@ -239,7 +239,7 @@ def upload_certificates_v2():
             'certificate_urls': prev_urls + urls,
             'latest_certificate_path': paths[-1] if paths else None,
             'latest_certificate_url': urls[-1] if urls else None
-        }).eq('id', user.data[0]['id']).execute()
+        }).eq('user_id', user.data[0]['user_id']).execute()
 
         return jsonify({'message': 'uploaded', 'paths': paths, 'urls': urls}), 200
     except Exception as error:
@@ -272,7 +272,7 @@ def delete_certificate_v2():
         if not user_resp.data:
             return jsonify({'message': 'User not found'}), 404
         user_row = user_resp.data[0]
-        user_id = user_row['id']
+        user_id = user_row['user_id']
 
         bucket = os.getenv('SUPABASE_CERT_BUCKET', 'certificates')
 
@@ -334,7 +334,7 @@ def delete_certificate_v2():
             'latest_certificate_path': new_latest_path,
             'latest_certificate_url': new_latest_url
         }
-        supabase.table('users').update(update_payload).eq('id', user_id).execute()
+        supabase.table('users').update(update_payload).eq('user_id', user_id).execute()
 
         return jsonify({'message': 'deleted', 'certificate_paths': new_paths, 'certificate_urls': new_urls}), 200
     except Exception as error:
@@ -405,13 +405,13 @@ def extract_grades():
                     return jsonify({'error': f'Missing required field: {field}'}), 400
 
         # Resolve user by email
-        res_user = supabase.table('users').select('id').eq('email', email).limit(1).execute()
+        res_user = supabase.table('users').select('id:user_id').eq('email', email).limit(1).execute()
         if not res_user.data:
             return jsonify({'error': 'User not found'}), 404
-        user_id = res_user.data[0]['id']
+        user_id = res_user.data[0]['user_id']
 
         # Save extracted grades
-        res_upd = supabase.table('users').update({'grades': grades}).eq('id', user_id).execute()
+        res_upd = supabase.table('users').update({'grades': grades}).eq('user_id', user_id).execute()
         saved = (res_upd.data[0].get('grades') if res_upd.data else grades) or grades
 
         return jsonify({'success': True, 'grades': saved, 'grade_values': grade_values, 'full_text': full_text}), 200

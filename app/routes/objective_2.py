@@ -43,8 +43,8 @@ id_to_axes: Dict[str, List[str]] = {
     'it_fy2_gtb121': ['S','A'],
     'it_fy2_icc0103': ['I','R'],
     'it_fy2_icc0103_1': ['R','I'],
-    'it_fy2_ped0013': ['R','S'], # Not in PDF, used your provided code
-    'it_fy2_nstp02': ['S','E'], # Not in PDF, used your provided code
+    'it_fy2_ped0013': ['R','S'],
+    'it_fy2_nstp02': ['S','E'],
 
 # --- BSIT Year 2 / First Semester ---
     'it_sy1_cet0121': ['I'],
@@ -290,10 +290,10 @@ def process_archetype_analysis():
                 supabase = get_supabase_client()
 
                 # Get user by email (also fetch tor_notes for merge)
-                user_response = supabase.table('users').select('id, tor_notes').eq('email', email).execute()
+                user_response = supabase.table('users').select('user_id, tor_notes').eq('email', email).execute()
                 if user_response.data:
                     user_row = user_response.data[0]
-                    user_id = user_row['id']
+                    user_id = user_row['user_id']
                     
                     # Populate denormalized columns per migration schema (no JSON storage)
                     update_data = {
@@ -344,7 +344,7 @@ def process_archetype_analysis():
                         # Non-blocking if tor_notes merge fails
                         pass
 
-                    supabase.table('users').update(update_data).eq('id', user_id).execute()
+                    supabase.table('users').update(update_data).eq('user_id', user_id).execute()
                     print(f"[OBJECTIVE-2] Saved archetype analysis to database for user {user_id}")
                 else:
                     print(f"[OBJECTIVE-2] User not found for email: {email}")
@@ -398,10 +398,10 @@ def clear_archetype_results():
         try:
             supabase = get_supabase_client()
             # Find user id
-            user_resp = supabase.table('users').select('id').eq('email', email).limit(1).execute()
+            user_resp = supabase.table('users').select('user_id').eq('email', email).limit(1).execute()
             if not user_resp.data:
                 return jsonify({'message': 'User not found'}), 404
-            user_id = user_resp.data[0]['id']
+            user_id = user_resp.data[0]['user_id']
 
             # Clear denormalized archetype columns
             update_data = {
@@ -414,7 +414,7 @@ def clear_archetype_results():
                 'archetype_enterprising_percentage': None,
                 'archetype_conventional_percentage': None,
             }
-            supabase.table('users').update(update_data).eq('id', user_id).execute()
+            supabase.table('users').update(update_data).eq('user_id', user_id).execute()
             return jsonify({'message': 'Archetype results cleared (Objective 2)'}), 200
         except Exception as db_error:
             print(f"[OBJECTIVE-2] Clear DB error: {db_error}")
@@ -435,7 +435,7 @@ def calculate_riasec_archetype(grades, order_ids: List[str] | None = None, *, ga
         return {}
 
     # Normalize grades to weights: higher grade -> higher weight.
-    # Treat 0 (no input) as 0 weight. Grades scale is 1.00(best)..3.00(pass)..4.00(fail)
+    # Treat 0 (no input) as 0 weight. Grades scale is 1.00(best)..3.00(pass)..5.00(fail)
     def grade_to_weight(g: float) -> float:
         if g is None:
             return 0.0
@@ -521,7 +521,7 @@ def calculate_riasec_archetype(grades, order_ids: List[str] | None = None, *, ga
         expv = np.exp(sims_scaled)
         weights_soft = expv / (expv.sum(axis=1, keepdims=True) + eps)
     else:
-        # euclidean distance converted to similarity
+        # cosine similarity 
         distances = np.linalg.norm(X[:, None, :] - centroids[None, :, :], axis=2)
         sims = -distances  # larger (less negative) is closer
         sims_scaled = sims / _tau
