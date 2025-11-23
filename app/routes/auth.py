@@ -125,7 +125,7 @@ def login():
         current_app.logger.info('Login attempt for %s', email)
         # Select only columns guaranteed to exist; fill optional fields in code
         response = supabase.table('users').select(
-            'id, email, first_name, last_name, course, student_number, password_hash'
+            'user_id, email, first_name, last_name, course, student_number, password_hash'
         ).eq('email', email).limit(1).execute()
 
         if not response.data:

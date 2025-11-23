@@ -254,5 +254,5 @@ def calculate_career_forecast(grades):
         top_labels = [k for k, _ in top_pairs]
         top_probs = [round(float(v), 4) for _, v in top_pairs]
         return (top_labels, top_probs), None
-    except Exception as e:
-        return [], f'Model inference error: {e}'
+    except Exception as e: # noqa: E722
+        return ([], []), f'Model inference error: {e}'

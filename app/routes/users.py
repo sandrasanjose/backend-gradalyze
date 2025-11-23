@@ -1,5 +1,6 @@
 from flask import Blueprint, jsonify, request
 import os
+from datetime import datetime, timezone
 from app.routes.auth import token_required
 from app.services.supabase_client import get_supabase_client
 
@@ -129,13 +130,18 @@ def upload_tor_v2():
             public_url = str(public_url_resp)
 
         # Save to users table
-        user = supabase.table('users').select('id:user_id').eq('email', email).execute()
+        # Correction: Select 'user_id' directly to match the key used below
+        user = supabase.table('users').select('user_id').eq('email', email).execute()
         if not user.data:
             return jsonify({'message': 'User not found'}), 404
+            
+        # Generate proper timestamp
+        timestamp = datetime.now(timezone.utc).isoformat()
+
         supabase.table('users').update({
             'tor_storage_path': storage_path,
             'tor_url': public_url,
-            'tor_uploaded_at': supabase.rpc if False else None
+            'tor_uploaded_at': timestamp
         }).eq('user_id', user.data[0]['user_id']).execute()
 
         return jsonify({'message': 'uploaded', 'storage_path': storage_path, 'url': public_url}), 200
@@ -417,4 +423,3 @@ def extract_grades():
         return jsonify({'success': True, 'grades': saved, 'grade_values': grade_values, 'full_text': full_text}), 200
     except Exception as error:
         return jsonify({'message': 'Extract grades failed', 'error': str(error)}), 500
-
