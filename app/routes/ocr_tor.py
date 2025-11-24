@@ -9,18 +9,13 @@ from typing import Dict, Any
 import pdfplumber
 import easyocr
 import pypdfium2 as pdfium
-from PIL import Image
 import numpy as np
-import cv2
 
 # Text Matching and API Libraries
-from difflib import get_close_matches
 import google.generativeai as genai
 
 # Flask and Project-Specific Imports
 from flask_cors import CORS
-from app.routes.objective_2 import id_to_axes as IT_SUBJECT_CODES, id_to_axes_cs as CS_SUBJECT_CODES
-from app.routes.subject_master_list import SUBJECT_MASTER_DICT
 from app.services.supabase_client import get_supabase_client
 
 # --- BLUEPRINT SETUP ---
@@ -50,12 +45,8 @@ except Exception as e:
     gemini_model = None
     print(f"[OCR_TOR] WARNING: Failed to initialize Gemini model: {e}")
 
-# --- MASTER SUBJECT LIST ---
-MASTER_SUBJECT_INFO = {code: info['title'].strip() for code, info in SUBJECT_MASTER_DICT.items()}
-OFFICIAL_SUBJECTS = list(MASTER_SUBJECT_INFO.values())
-
 def refine_with_gemini_layout_aware(ocr_results: list) -> Dict[str, Any]:
-    """Uses Gemini to parse structured OCR data for better accuracy."""
+    """Uses Gemini to parse structured OCR data and extract course information directly from TOR."""
     if not gemini_model:
         return {}
 
@@ -63,18 +54,26 @@ def refine_with_gemini_layout_aware(ocr_results: list) -> Dict[str, Any]:
     ocr_data_for_prompt = [f'text: "{text}", position: ({int(bbox[0][0])}, {int(bbox[0][1])})' for (bbox, text, prob) in ocr_results]
 
     prompt = f"""
-        You are an expert at reading academic transcripts. Below is OCR data with text and (x, y) coordinates.
-        Accurately match each subject title with its final grade. The grade is usually in a column to the right.
-
-        Reference Subject List:
-        {json.dumps(OFFICIAL_SUBJECTS, indent=2)}
+        You are an expert at reading academic transcripts (Transcript of Records). Below is OCR data with text and (x, y) coordinates.
+        
+        Extract all courses from this transcript. For each course, identify:
+        1. Course code/number (e.g., "CS101", "IT-101", "MATH 101")
+        2. Descriptive title (the full course name)
+        3. Units (credit hours/units for the course)
+        4. Grade (the final grade received, usually a number like 1.0, 2.5, 3.0, etc.)
 
         OCR Data:
         ---
         {chr(10).join(ocr_data_for_prompt)}
         ---
 
-        Return a clean JSON array of objects, where each object has a "subject" and a "grade" key. Match subjects to the reference list and ensure grades are numbers.
+        Return a clean JSON array of objects, where each object has:
+        - "course_code": the course code/number (string)
+        - "title": the descriptive course title (string)
+        - "units": the number of units/credits (number)
+        - "grade": the final grade (number)
+
+        Extract ALL courses you can find in the transcript. Do not filter or match to any reference list - just extract what is actually in the document.
         Return only the JSON array.
         """
     try:
@@ -84,32 +83,80 @@ def refine_with_gemini_layout_aware(ocr_results: list) -> Dict[str, Any]:
         cleaned_json_text = response.text.strip().replace("```json", "").replace("```", "")
         extracted_data = json.loads(cleaned_json_text)
 
-        grades, grade_values, subject_pairs = [], [], []
+        courses = []
+        grade_values = []
         if isinstance(extracted_data, list):
             for item in extracted_data:
-                if isinstance(item, dict) and 'subject' in item and 'grade' in item:
+                if isinstance(item, dict):
                     try:
-                        grade_value = float(item['grade'])
-                        subject = str(item['subject'])
-                        grades.append({'subject': subject, 'grade': grade_value})
-                        grade_values.append(grade_value)
-                        subject_pairs.append({'subject': subject, 'grade': grade_value})
-                    except (ValueError, TypeError):
+                        course_code = str(item.get('course_code', item.get('code', ''))).strip()
+                        title = str(item.get('title', item.get('subject', ''))).strip()
+                        units = float(item.get('units', item.get('unit', 0)))
+                        grade = float(item.get('grade', 0))
+                        
+                        if course_code and title and grade > 0:
+                            course_data = {
+                                'course_code': course_code,
+                                'title': title,
+                                'units': units,
+                                'grade': grade
+                            }
+                            courses.append(course_data)
+                            grade_values.append(grade)
+                    except (ValueError, TypeError) as e:
+                        print(f"[OCR_TOR] Skipping invalid course entry: {item}, error: {e}")
                         continue
-        print(f"[OCR_TOR] Gemini refinement successful. Extracted {len(grades)} pairs.")
-        return {'grade_values': grade_values, 'grades': grades, 'subject_pairs': subject_pairs}
+        print(f"[OCR_TOR] Gemini refinement successful. Extracted {len(courses)} courses.")
+        return {'courses': courses, 'grade_values': grade_values}
     except Exception as e:
         print(f"[OCR_TOR] Gemini refinement failed: {e}")
         return {}
 
 
-def fuzzy_subject_match(line_text: str) -> str | None:
-    line_lower = line_text.lower()
-    for subject in OFFICIAL_SUBJECTS:
-        if subject.lower() in line_lower:
-            return subject
-    matches = get_close_matches(line_lower, OFFICIAL_SUBJECTS, n=1, cutoff=0.7)
-    return matches[0] if matches else None
+def extract_course_from_line(line_text: str) -> Dict[str, Any] | None:
+    """Extract course information from a line of text using regex patterns."""
+    if not line_text or len(line_text.strip()) < 3:
+        return None
+    
+    # Pattern for course code (alphanumeric with possible dashes/spaces)
+    course_code_pattern = re.compile(r'\b([A-Z]{2,4}[\s\-]?\d{3,4})\b', re.IGNORECASE)
+    # Pattern for grade (1.0 to 5.0 scale)
+    grade_pattern = re.compile(r'\b([1-5]\.\d{1,2})\b')
+    # Pattern for units (usually 1-6 digits, sometimes with decimals)
+    units_pattern = re.compile(r'\b(\d{1,2}(?:\.\d+)?)\s*(?:units?|credits?|hrs?)?\b', re.IGNORECASE)
+    
+    course_code_match = course_code_pattern.search(line_text)
+    grade_match = grade_pattern.search(line_text)
+    units_match = units_pattern.search(line_text)
+    
+    if not grade_match:
+        return None
+    
+    course_code = course_code_match.group(1) if course_code_match else ""
+    grade = float(grade_match.group(1))
+    units = float(units_match.group(1)) if units_match else 0.0
+    
+    # Extract title (everything except course code, grade, and units)
+    title = line_text.strip()
+    if course_code_match:
+        title = title.replace(course_code_match.group(1), "").strip()
+    if grade_match:
+        title = title.replace(grade_match.group(1), "").strip()
+    if units_match:
+        title = title.replace(units_match.group(1), "").strip()
+    # Clean up common words
+    title = re.sub(r'\b(units?|credits?|hrs?)\b', '', title, flags=re.IGNORECASE).strip()
+    title = re.sub(r'\s+', ' ', title).strip()
+    
+    if not title:
+        return None
+    
+    return {
+        'course_code': course_code,
+        'title': title,
+        'units': units,
+        'grade': grade
+    }
 
 def has_meaningful_text(text: str) -> bool:
     if not text or len(text.strip()) < 50: return False
@@ -149,42 +196,33 @@ def extract_grades_from_tor(file_bytes: bytes, filename: str) -> Dict[str, Any]:
 
     if raw_ocr_results and gemini_model:
         gemini_results = refine_with_gemini_layout_aware(raw_ocr_results)
-        if gemini_results.get('grades'):
-            final_grades = gemini_results['grades']
-            it_course_ids = [grade['subject'] for grade in final_grades if grade['subject'] in IT_SUBJECT_CODES]
-            cs_course_ids = [grade['subject'] for grade in final_grades if grade['subject'] in CS_SUBJECT_CODES]
-            all_course_ids = it_course_ids + cs_course_ids
+        if gemini_results.get('courses'):
+            courses = gemini_results['courses']
             return {
-                'grade_values': [g['grade'] for g in final_grades],
-                'grades': final_grades,
-                'subject_pairs': [g['subject'] for g in final_grades],
-                'full_text': full_text,
-                'metadata': [{
-                    'id': course_id,
-                    'title': SUBJECT_MASTER_DICT[course_id]['title'],
-                    'units': SUBJECT_MASTER_DICT[course_id]['units'],
-                    'description': SUBJECT_MASTER_DICT[course_id]['description']
-                } for course_id in all_course_ids]
+                'grade_values': gemini_results.get('grade_values', [g['grade'] for g in courses]),
+                'grades': courses,
+                'subject_pairs': courses,  # For backward compatibility
+                'courses': courses,  # Main data structure
+                'full_text': full_text
             }
 
-    print("[OCR_TOR] Gemini failed or was not used. Falling back to simple regex method.")
-    grades, grade_values, subject_pairs = [], [], []
-    grade_pattern = re.compile(r'\b[1-5]\.\d{2}\b')
+    print("[OCR_TOR] Gemini failed or was not used. Falling back to regex extraction method.")
+    courses = []
+    grade_values = []
+    
     if full_text and "OCR Error" not in full_text:
         for line in full_text.split('\n'):
-            found_grades = grade_pattern.findall(line)
-            if not found_grades: continue
-            subject_match = fuzzy_subject_match(line)
-            if subject_match:
-                for g in found_grades:
-                    grade = float(g)
-                    grades.append({'subject': subject_match, 'grade': grade})
-                    subject_pairs.append({'subject': subject_match, 'grade': grade})
-                    grade_values.append(grade)
+            course_data = extract_course_from_line(line)
+            if course_data:
+                courses.append(course_data)
+                grade_values.append(course_data['grade'])
 
     return {
-        'grade_values': grade_values, 'grades': grades,
-        'subject_pairs': subject_pairs, 'full_text': full_text
+        'grade_values': grade_values,
+        'grades': courses,
+        'subject_pairs': courses,  # For backward compatibility
+        'courses': courses,  # Main data structure
+        'full_text': full_text
     }
 
 
