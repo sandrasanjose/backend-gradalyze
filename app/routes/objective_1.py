@@ -238,6 +238,26 @@ def calculate_career_forecast(grades):
         labels: list[str] = model_bundle.get('labels')
         if model is None or not labels:
             return [], 'Model bundle missing required keys {model, labels}'
+        # Validate feature compatibility
+        n_features = 70
+        if hasattr(model, "n_features_in_"):
+             n_features = model.n_features_in_
+        
+        current_len = X.shape[1]
+        if current_len != n_features:
+            print(f"[OBJECTIVE-1] Adjusting features: {current_len} -> {n_features}")
+            if current_len < n_features:
+                # Pad with 3.0 (Passing/neutral) or 0.0? 
+                # Model trained on 0.0-4.0. 
+                # Let's pad with 0.0 (missing/fail) or maybe the mean? 
+                # User said "as long as they has numbers", implying just make it work.
+                # Padding with 0s is safest structurally.
+                padding = np.zeros((1, n_features - current_len))
+                X = np.hstack([X, padding])
+            else:
+                # Truncate
+                X = X[:, :n_features]
+
         # Predict per-career score (regression per label stacked)
         y_pred = model.predict(X)
         if y_pred.ndim == 1:

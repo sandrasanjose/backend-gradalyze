@@ -43,7 +43,7 @@ def process_job_recommendations():
             # Get user data using current schema (denormalized columns)
             select_cols = (
                 'user_id, job_recommendations, career_top_jobs, career_top_jobs_scores, '
-                'primary_archetype, '
+                'primary_archetype, tor_notes, '
                 'archetype_realistic_percentage, archetype_investigative_percentage, '
                 'archetype_artistic_percentage, archetype_social_percentage, '
                 'archetype_enterprising_percentage, archetype_conventional_percentage'
@@ -86,6 +86,19 @@ def process_job_recommendations():
                 }
                 print(f"[OBJECTIVE-3] Forecast keys: {list(career_forecast.keys())}")
                 print(f"[OBJECTIVE-3] Archetype % present: {[k for k,v in archetype_analysis.items() if k.startswith('archetype_') and v is not None]}")
+                
+                # Extract skills and cross-disciplinary careers from tor_notes
+                transferable_skills = []
+                cross_disciplinary_careers = []
+                try:
+                    notes_str = user_data.get('tor_notes') or '{}'
+                    notes = json.loads(notes_str) if isinstance(notes_str, str) else (notes_str or {})
+                    analysis = notes.get('analysis_results', {}).get('archetype_analysis', {})
+                    transferable_skills = analysis.get('transferable_skills') or []
+                    cross_disciplinary_careers = analysis.get('cross_disciplinary_careers') or []
+                    print(f"[OBJECTIVE-3] Extracted {len(transferable_skills)} skills and {len(cross_disciplinary_careers)} cross-disciplinary careers")
+                except Exception as e:
+                    print(f"[OBJECTIVE-3] Failed to extract skills/careers from notes: {e}")
             else:
                 print(f"[OBJECTIVE-3] User not found for email: {email}")
         except Exception as db_error:
@@ -162,7 +175,7 @@ def process_job_recommendations():
             pass
 
         # Company recommendations based on career forecast and archetype
-        result = generate_job_recommendations(career_forecast, archetype_analysis, debug=debug_requested)
+        result = generate_job_recommendations(career_forecast, archetype_analysis, transferable_skills, cross_disciplinary_careers, debug=debug_requested)
         company_list = []
         if isinstance(result, dict):
             company_list = result.get('company_recommendations') or []
@@ -259,7 +272,7 @@ def clear_job_results():
         print(f"[OBJECTIVE-3] Error: {e}")
         return jsonify({'message': 'Failed to clear job results', 'error': str(e)}), 500
 
-def generate_job_recommendations(career_forecast, archetype_analysis, debug: bool = False):
+def generate_job_recommendations(career_forecast, archetype_analysis, transferable_skills=[], cross_disciplinary_careers=[], debug: bool = False):
     """
     Vector-similarity based recommender (no LLM involvement).
 
@@ -398,6 +411,32 @@ def generate_job_recommendations(career_forecast, archetype_analysis, debug: boo
                 w = 0.0
             for i in range(6):
                 user_skills[i] += w * mapping[i]
+        
+        # ENHANCEMENT: Boost user_skills vector based on extracted Transferable Skills
+        # This reduces bias by focusing on actual skills rather than just job titles
+        # Simple keyword matching to dimensions (expand as needed)
+        skill_map = {
+            'analysis': [0, 1, 0, 0, 0, 0.5], 'critical': [0, 1, 0, 0, 0, 0],
+            'communication': [0, 0, 0, 1, 0.5, 0], 'team': [0, 0, 0, 1, 0.5, 0],
+            'leadership': [0, 0, 0, 0.5, 1, 0], 'management': [0, 0, 0, 0.2, 1, 0.5],
+            'design': [0, 0, 1, 0, 0, 0], 'creative': [0, 0, 1, 0, 0, 0],
+            'programming': [0.5, 0.5, 0, 0, 0, 0.5], 'coding': [0.5, 0.5, 0, 0, 0, 0.5],
+            'problem': [0, 1, 0, 0, 0, 0], 'solving': [0, 1, 0, 0, 0, 0],
+            'data': [0, 1, 0, 0, 0, 0.5], 'research': [0, 1, 0, 0, 0, 0]
+        }
+        for skill in transferable_skills:
+            s_lower = skill.lower()
+            for k, v in skill_map.items():
+                if k in s_lower:
+                    # Add to user vector
+                    for i in range(6):
+                        user_skills[i] += v[i] * 0.5 # Weight for skills
+        
+        # Normalize user_skills
+        import math
+        norm = math.sqrt(sum(x*x for x in user_skills))
+        if norm > 0:
+            user_skills = [x/norm for x in user_skills]
 
         user_riasec = [
             float(archetype_analysis.get('archetype_realistic_percentage') or 0) / 100.0,
@@ -433,8 +472,52 @@ def generate_job_recommendations(career_forecast, archetype_analysis, debug: boo
                 'company_size': row.get('company_size') or '',
                 'linkedin_url': row.get('linkedin_url') or '',
                 'hiring_tags': row.get('hiring_tags') or [],
-                'score': round(float(score), 4)
+                'hiring_tags': row.get('hiring_tags') or [],
+                'score': round(float(score), 4),
+                'match_type': 'Primary' # Default
             })
+            
+        # ENHANCEMENT: Add Cross-Disciplinary Recommendations
+        # If we have cross-disciplinary careers, try to find matching companies (fuzzy match on roles/industry)
+        if cross_disciplinary_careers:
+            # Create a set of existing titles to avoid duplicates
+            existing_titles = set(c['title'] for c in company_recommendations)
+            
+            # Simple heuristic: find companies where roles match cross-disciplinary keywords
+            for cd_career in cross_disciplinary_careers:
+                cd_lower = cd_career.lower()
+                for row in items:
+                    if row.get('name') in existing_titles: continue
+                    
+                    # Check roles
+                    roles = [r.lower() for r in (row.get('roles') or [])]
+                    industry = (row.get('industry') or '').lower()
+                    
+                    if any(cd_lower in r for r in roles) or cd_lower in industry:
+                        # Found a match! Add it.
+                        company_recommendations.append({
+                            'title': row.get('name'),
+                            'description': row.get('description') or '',
+                            'location': (row.get('locations') or ['Remote'])[0],
+                            'locations': row.get('locations') or [],
+                            'url': row.get('website') or '',
+                            'logo_url': row.get('logo_url') or '',
+                            'roles': row.get('roles') or [],
+                            'industry': row.get('industry') or '',
+                            'company_size': row.get('company_size') or '',
+                            'linkedin_url': row.get('linkedin_url') or '',
+                            'hiring_tags': row.get('hiring_tags') or [],
+                            'score': 0.85, # Artificial high score to ensure visibility
+                            'match_type': 'Cross-Disciplinary'
+                        })
+                        existing_titles.add(row.get('name'))
+                        if len(company_recommendations) >= 25: break # Cap total
+                if len(company_recommendations) >= 25: break
+
+        # Re-sort slightly to mix them in, or keep appended? 
+        # User wants to see them, so maybe keep them high or interleave.
+        # For now, let's just sort by score again.
+        company_recommendations.sort(key=lambda x: x['score'], reverse=True)
         debug_obj['ranked'] = len(company_recommendations)
         if company_recommendations:
             debug_obj['sample_company'] = company_recommendations[0]

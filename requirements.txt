@@ -15,4 +15,4 @@ Pillow
 pdfplumber
 pypdfium2
 easyocr
-google-generativeai>=0.4.0
+google-generativeai>=0.7.0
